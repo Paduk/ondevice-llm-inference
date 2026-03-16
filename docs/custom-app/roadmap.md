@@ -4,7 +4,7 @@
 
 - Overall status: `in_progress`
 - Current phase: `Phase 1`
-- Current focus: `Task 9 legacy flow removal`
+- Current focus: `Validation and packaging`
 
 ## MVP Acceptance Criteria
 
@@ -49,7 +49,7 @@
 - [x] Implement JSON parser
 - [x] Implement TSV loader
 - [x] Implement Macro Accuracy evaluator
-- [ ] Remove unused dependencies
+- [x] Remove unused dependencies
 - [ ] Validate on physical device
 
 ## Agent Update Rules
@@ -76,3 +76,5 @@ When an agent completes a task, update:
 - 2026-03-16: Task 6 completed. A strict JSON parser now validates model output as a single object with `query`, `rewrited_query`, `generated`, and `answer`, and the compact chat screen shows parse success or parse failure after each response.
 - 2026-03-16: Task 7 completed. A strict TSV loader now validates required columns, unique `unique_idx` values, and non-empty answers, and the compact chat screen reports TSV load status and loaded record count.
 - 2026-03-16: Task 8 completed. Parsed model output is now matched against TSV gold data by `query` and `rewrited_query`, with per-turn correctness and cumulative Macro Accuracy shown in the compact chat screen.
+- 2026-03-16: Task 9 completed. The manifest now exposes only `MainActivity` as the user-facing app path, and legacy ASR, task-management, model-download, and share-text chat activity registrations have been removed from the main flow.
+- 2026-03-16: Task 10 completed. The custom app cleanup pass removed legacy audio permission usage from the manifest, deleted obsolete Android instrumentation tests tied to old flows, and trimmed test-only dependency footprint while keeping the current compact app build stable.

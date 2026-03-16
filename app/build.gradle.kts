@@ -95,7 +95,6 @@ dependencies {
 
     implementation(project(":smollm"))
     implementation(project(":hf-model-hub-api"))
-
     // Koin: dependency injection
     implementation(libs.koin.android)
     implementation(libs.koin.annotations)
@@ -143,10 +142,5 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
 }
