@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
@@ -137,6 +138,18 @@ private fun SetupPlaceholderScreen(
             }
 
             SectionCard(title = "Prompt And Parameters") {
+                Text(
+                    text = "Prompt preset",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                promptPresetOptions.forEach { preset ->
+                    RadioSelectionRow(
+                        label = preset.label,
+                        selected = uiState.selectedPromptPresetKey == preset.key,
+                        onSelect = { viewModel.selectPromptPreset(preset.key) },
+                    )
+                }
                 OutlinedTextField(
                     value = uiState.systemPrompt,
                     onValueChange = viewModel::updateSystemPrompt,
@@ -341,11 +354,176 @@ private fun ChatEvaluatePlaceholderScreen(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+                uiState.renderedPromptPreview?.let { preview ->
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Text(
+                        text = "Rendered prompt preview",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = preview,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (uiState.renderedToolsMissingPlans.isNotEmpty()) {
+                    Text(
+                        text = "Missing tools metadata: ${uiState.renderedToolsMissingPlans.joinToString()}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 uiState.goldTsvLoadError?.let {
                     Text(
                         text = "TSV load failed: $it",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            SectionCard(title = "Tools Diagnostics") {
+                MetricRow(
+                    label = "Parsed candidates",
+                    value = uiState.renderedToolsCandidateCount.toString(),
+                )
+                MetricRow(
+                    label = "Rendered tools",
+                    value = uiState.renderedToolsCount.toString(),
+                )
+                MetricRow(
+                    label = "Render status",
+                    value =
+                        when {
+                            uiState.renderedToolsCandidateCount == 0 -> "No candidates"
+                            uiState.renderedToolsCount > 0 -> "Rendered"
+                            uiState.renderedToolsMissingPlans.isNotEmpty() -> "Warnings"
+                            else -> "Pending"
+                        },
+                )
+                MetricRow(
+                    label = "Missing plans",
+                    value =
+                        if (uiState.renderedToolsMissingPlans.isEmpty()) "0"
+                        else uiState.renderedToolsMissingPlans.size.toString(),
+                )
+                if (uiState.renderedToolsMissingPlans.isNotEmpty()) {
+                    Text(
+                        text = uiState.renderedToolsMissingPlans.joinToString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            SectionCard(title = "Batch Run Mode") {
+                batchRunModeOptions.forEach { option ->
+                    RadioSelectionRow(
+                        label = option.label,
+                        selected = uiState.selectedBatchRunMode == option.key,
+                        onSelect = { viewModel.selectBatchRunMode(option.key) },
+                    )
+                    Text(
+                        text = option.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
+                    )
+                }
+                MetricRow(
+                    label = "Selected mode",
+                    value =
+                        batchRunModeOptions.firstOrNull {
+                            it.key == uiState.selectedBatchRunMode
+                        }?.label ?: "First 1",
+                )
+                MetricRow(label = "Total rows", value = uiState.batchTotalCount.toString())
+                MetricRow(label = "Completed rows", value = uiState.batchCompletedCount.toString())
+                MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
+                MetricRow(
+                    label = "Latest row",
+                    value = uiState.batchLatestUniqueIdx ?: "N/A",
+                )
+                uiState.batchStatusMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = viewModel::startBatchRun,
+                        enabled =
+                            uiState.goldRecords.isNotEmpty() &&
+                                !uiState.isBatchRunning &&
+                                !uiState.isGenerating &&
+                                uiState.isModelReady,
+                    ) {
+                        Text("Start Batch Test")
+                    }
+                    TextButton(
+                        onClick = viewModel::stopBatchRun,
+                        enabled = uiState.isBatchRunning,
+                    ) {
+                        Text("Stop")
+                    }
+                }
+            }
+
+            SectionCard(title = "Batch Summary") {
+                MetricRow(
+                    label = "Batch state",
+                    value =
+                        when {
+                            uiState.isBatchRunning -> "Running"
+                            uiState.batchCompletedCount > 0 -> "Completed"
+                            else -> "Idle"
+                        },
+                )
+                MetricRow(
+                    label = "Progress",
+                    value = "${uiState.batchCompletedCount}/${uiState.batchTotalCount} (${uiState.batchCompletionPercent}%)",
+                )
+                MetricRow(
+                    label = "Successful rows",
+                    value = uiState.batchSuccessCount.toString(),
+                )
+                MetricRow(
+                    label = "Failed rows",
+                    value = uiState.batchFailedCount.toString(),
+                )
+                MetricRow(
+                    label = "Success rate",
+                    value =
+                        uiState.batchSuccessRate?.let { "${"%.2f".format(it * 100)}%" }
+                            ?: "N/A",
+                )
+                MetricRow(
+                    label = "Evaluated samples",
+                    value = uiState.evaluationHistory.size.toString(),
+                )
+                MetricRow(
+                    label = "Macro Accuracy",
+                    value =
+                        uiState.macroAccuracy?.let { "${"%.4f".format(it)}" }
+                            ?: "N/A",
+                )
+                MetricRow(
+                    label = "Latest processed row",
+                    value = uiState.batchLatestUniqueIdx ?: "N/A",
+                )
+                uiState.batchStatusMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                uiState.evaluationErrorMessage?.let {
+                    Text(
+                        text = "Latest evaluation issue: $it",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             }
@@ -535,6 +713,24 @@ private fun CheckboxRow(
                 .padding(top = 12.dp)
                 .clickable { onCheckedChange(!checked) },
         )
+    }
+}
+
+@Composable
+private fun RadioSelectionRow(
+    label: String,
+    selected: Boolean,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect)
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        RadioButton(selected = selected, onClick = onSelect)
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

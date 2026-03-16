@@ -3,6 +3,7 @@ package io.shubham0204.smollmandroid.ui.customapp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.shubham0204.smollm.SmolLM
+import io.shubham0204.smollmandroid.data.ApiMetadataAssetStore
 import io.shubham0204.smollmandroid.data.AppDB
 import io.shubham0204.smollmandroid.data.Chat
 import io.shubham0204.smollmandroid.data.ChatMessage
@@ -10,14 +11,20 @@ import io.shubham0204.smollmandroid.data.LLMModel
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.annotation.KoinViewModel
 import java.util.Date
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.random.Random
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
 private const val PREF_SETUP_SYSTEM_PROMPT = "custom_app.setup.system_prompt"
@@ -29,6 +36,36 @@ private const val PREF_SETUP_USE_MMAP = "custom_app.setup.use_mmap"
 private const val PREF_SETUP_USE_MLOCK = "custom_app.setup.use_mlock"
 private const val PREF_SETUP_TSV_PATH = "custom_app.setup.tsv_path"
 private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
+private const val PREF_BATCH_RUN_MODE = "custom_app.batch.run_mode"
+
+const val BATCH_RUN_MODE_FIRST_1 = "first_1"
+const val BATCH_RUN_MODE_RANDOM_10 = "random_10"
+const val BATCH_RUN_MODE_ALL = "all"
+
+data class BatchRunModeOption(
+    val key: String,
+    val label: String,
+    val description: String,
+)
+
+val batchRunModeOptions =
+    listOf(
+        BatchRunModeOption(
+            key = BATCH_RUN_MODE_FIRST_1,
+            label = "First 1",
+            description = "Run only the first valid TSV row.",
+        ),
+        BatchRunModeOption(
+            key = BATCH_RUN_MODE_RANDOM_10,
+            label = "Random 10",
+            description = "Run up to 10 randomly selected TSV rows.",
+        ),
+        BatchRunModeOption(
+            key = BATCH_RUN_MODE_ALL,
+            label = "All",
+            description = "Run the full TSV in file order.",
+        ),
+    )
 
 data class CustomAppChatUiState(
     val chat: Chat? = null,
@@ -47,22 +84,48 @@ data class CustomAppChatUiState(
     val goldRecords: List<GoldTsvRecord> = emptyList(),
     val goldTsvName: String = "",
     val goldTsvLoadError: String? = null,
+    val selectedBatchRunMode: String = BATCH_RUN_MODE_FIRST_1,
+    val renderedPromptPreview: String? = null,
+    val renderedToolsMissingPlans: List<String> = emptyList(),
+    val renderedToolsCandidateCount: Int = 0,
+    val renderedToolsCount: Int = 0,
+    val isBatchRunning: Boolean = false,
+    val batchTotalCount: Int = 0,
+    val batchCompletedCount: Int = 0,
+    val batchFailedCount: Int = 0,
+    val batchLatestUniqueIdx: String? = null,
+    val batchStatusMessage: String? = null,
     val evaluationHistory: List<EvaluationResult> = emptyList(),
     val latestEvaluationResult: EvaluationResult? = null,
     val macroAccuracy: Float? = null,
     val evaluationErrorMessage: String? = null,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
-)
+) {
+    val batchSuccessCount: Int
+        get() = (batchCompletedCount - batchFailedCount).coerceAtLeast(0)
+
+    val batchCompletionPercent: Int
+        get() =
+            if (batchTotalCount <= 0) 0
+            else ((batchCompletedCount.toFloat() / batchTotalCount.toFloat()) * 100).toInt()
+
+    val batchSuccessRate: Float?
+        get() =
+            if (batchCompletedCount <= 0) null
+            else batchSuccessCount.toFloat() / batchCompletedCount.toFloat()
+}
 
 @KoinViewModel
 class CustomAppChatViewModel(
     private val appDB: AppDB,
     private val sharedPrefStore: SharedPrefStore,
+    private val apiMetadataAssetStore: ApiMetadataAssetStore,
     private val smolLMManager: SmolLMManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CustomAppChatUiState())
     val uiState: StateFlow<CustomAppChatUiState> = _uiState
+    private var batchRunJob: Job? = null
 
     init {
         initializeSession()
@@ -72,11 +135,24 @@ class CustomAppChatViewModel(
         _uiState.update { it.copy(inputText = value) }
     }
 
+    fun selectBatchRunMode(modeKey: String) {
+        if (batchRunModeOptions.none { it.key == modeKey }) {
+            return
+        }
+        _uiState.update { it.copy(selectedBatchRunMode = modeKey) }
+        sharedPrefStore.put(PREF_BATCH_RUN_MODE, modeKey)
+    }
+
     fun sendMessage() {
         val currentState = _uiState.value
         val chat = currentState.chat ?: return
         val query = currentState.inputText.trim()
-        if (query.isBlank() || !currentState.isModelReady || currentState.isGenerating) {
+        if (
+            query.isBlank() ||
+                !currentState.isModelReady ||
+                currentState.isGenerating ||
+                currentState.isBatchRunning
+        ) {
             return
         }
 
@@ -171,6 +247,10 @@ class CustomAppChatViewModel(
 
     fun clearConversation() {
         val chat = _uiState.value.chat ?: return
+        if (_uiState.value.isBatchRunning) {
+            stopBatchRun()
+            return
+        }
         smolLMManager.stopResponseGeneration()
         smolLMManager.unload()
         appDB.deleteMessages(chat.id)
@@ -195,6 +275,161 @@ class CustomAppChatViewModel(
             )
         }
         loadModel(chat)
+    }
+
+    fun startBatchRun() {
+        val currentState = _uiState.value
+        val originalChat = currentState.chat ?: run {
+            _uiState.update { it.copy(errorMessage = "No active chat session available.") }
+            return
+        }
+        val selectedModel = currentState.selectedModel ?: run {
+            _uiState.update { it.copy(errorMessage = "No model selected for batch run.") }
+            return
+        }
+        if (currentState.isBatchRunning || currentState.isGenerating) {
+            return
+        }
+        if (currentState.goldRecords.isEmpty()) {
+            _uiState.update {
+                it.copy(errorMessage = "Batch run requires a loaded TSV gold file.")
+            }
+            return
+        }
+
+        val selectedRows = selectBatchRows(currentState.goldRecords, currentState.selectedBatchRunMode)
+        if (selectedRows.isEmpty()) {
+            _uiState.update {
+                it.copy(errorMessage = "No TSV rows available for the selected batch mode.")
+            }
+            return
+        }
+
+        batchRunJob?.cancel()
+        batchRunJob =
+            viewModelScope.launch(Dispatchers.Main) {
+                _uiState.update {
+                    it.copy(
+                        isBatchRunning = true,
+                        isGenerating = false,
+                        batchTotalCount = selectedRows.size,
+                        batchCompletedCount = 0,
+                        batchFailedCount = 0,
+                        batchLatestUniqueIdx = null,
+                        batchStatusMessage = "Starting batch run...",
+                        statusMessage = null,
+                        errorMessage = null,
+                    )
+                }
+
+                smolLMManager.unload()
+                var tempChat: Chat? = null
+                try {
+                    val promptTemplate = originalChat.systemPrompt
+                    val apiMetadataByPlan = apiMetadataAssetStore.getAll()
+                    tempChat = createBatchChat(originalChat)
+
+                    selectedRows.forEachIndexed { index, record ->
+                        val renderResult =
+                            CustomAppPromptTemplateRenderer.render(
+                                template = promptTemplate,
+                                record = record,
+                                apiMetadataByPlan = apiMetadataByPlan,
+                            )
+                        _uiState.update {
+                            it.copy(
+                                batchLatestUniqueIdx = record.uniqueIdx,
+                                batchStatusMessage =
+                                    "Running ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                                renderedPromptPreview = renderResult.prompt,
+                                renderedToolsMissingPlans = renderResult.missingPlans,
+                                renderedToolsCandidateCount = renderResult.parsedCandidateCount,
+                                renderedToolsCount = renderResult.renderedToolCount,
+                            )
+                        }
+
+                        appDB.deleteMessages(tempChat.id)
+                        smolLMManager.unload()
+                        loadModelSuspend(tempChat, selectedModel.path)
+                        val response = getResponseSuspend(renderResult.prompt)
+                        val parseResult = runCatching { CustomAppJsonParser.parse(response.response) }
+                        val currentUiState = _uiState.value
+                        val evaluationSummary =
+                            CustomAppEvaluator.evaluate(
+                                parsedPrediction = parseResult.getOrNull(),
+                                goldRecords = currentUiState.goldRecords,
+                                priorResults = currentUiState.evaluationHistory,
+                                parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                            )
+                        val updatedHistory =
+                            evaluationSummary.latestResult?.let { latest ->
+                                currentUiState.evaluationHistory.filterNot {
+                                    it.uniqueIdx == latest.uniqueIdx
+                                } + latest
+                            } ?: currentUiState.evaluationHistory
+                        val isFailed =
+                            parseResult.isFailure || evaluationSummary.errorMessage != null
+
+                        _uiState.update {
+                            it.copy(
+                                partialResponse = "",
+                                generationSpeedTokensPerSec = response.generationSpeed,
+                                generationTimeSecs = response.generationTimeSecs,
+                                contextLengthUsed = response.contextLengthUsed,
+                                parsedPrediction = parseResult.getOrNull(),
+                                parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                                evaluationHistory = updatedHistory,
+                                latestEvaluationResult = evaluationSummary.latestResult,
+                                macroAccuracy = evaluationSummary.macroAccuracy,
+                                evaluationErrorMessage = evaluationSummary.errorMessage,
+                                batchCompletedCount = index + 1,
+                                batchFailedCount =
+                                    if (isFailed) currentUiState.batchFailedCount + 1
+                                    else currentUiState.batchFailedCount,
+                                batchStatusMessage =
+                                    "Completed ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                            )
+                        }
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            batchStatusMessage = "Batch run finished.",
+                            statusMessage = "Batch run finished.",
+                        )
+                    }
+                } catch (error: Exception) {
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            batchStatusMessage = null,
+                            errorMessage = error.message ?: "Batch run failed.",
+                        )
+                    }
+                } finally {
+                    tempChat?.let {
+                        appDB.deleteMessages(it.id)
+                        appDB.deleteChat(it)
+                    }
+                    smolLMManager.unload()
+                    loadModel(originalChat)
+                }
+            }
+    }
+
+    fun stopBatchRun() {
+        batchRunJob?.cancel()
+        batchRunJob = null
+        smolLMManager.stopResponseGeneration()
+        _uiState.update {
+            it.copy(
+                isBatchRunning = false,
+                batchStatusMessage = "Batch run stopped.",
+                statusMessage = "Batch run stopped.",
+            )
+        }
+        _uiState.value.chat?.let(::loadModel)
     }
 
     override fun onCleared() {
@@ -283,13 +518,51 @@ class CustomAppChatViewModel(
                 }
 
             withContext(Dispatchers.Main) {
+                val goldRecords = goldTsvLoadResult.getOrDefault(emptyList())
+                val systemPrompt = chat.systemPrompt
+                val apiMetadataByPlan =
+                    runCatching { apiMetadataAssetStore.getAll() }.getOrDefault(emptyMap())
                 _uiState.update {
                     it.copy(
                         chat = chat,
                         selectedModel = selectedModel,
-                        goldRecords = goldTsvLoadResult.getOrDefault(emptyList()),
+                        goldRecords = goldRecords,
                         goldTsvName = goldTsvName,
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
+                        selectedBatchRunMode =
+                            sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1),
+                        renderedPromptPreview =
+                            goldRecords.firstOrNull()?.let { record ->
+                                CustomAppPromptTemplateRenderer.render(
+                                    template = systemPrompt,
+                                    record = record,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                ).prompt
+                            },
+                        renderedToolsMissingPlans =
+                            goldRecords.firstOrNull()?.let { record ->
+                                CustomAppPromptTemplateRenderer.render(
+                                    template = systemPrompt,
+                                    record = record,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                ).missingPlans
+                            } ?: emptyList(),
+                        renderedToolsCandidateCount =
+                            goldRecords.firstOrNull()?.let { record ->
+                                CustomAppPromptTemplateRenderer.render(
+                                    template = systemPrompt,
+                                    record = record,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                ).parsedCandidateCount
+                            } ?: 0,
+                        renderedToolsCount =
+                            goldRecords.firstOrNull()?.let { record ->
+                                CustomAppPromptTemplateRenderer.render(
+                                    template = systemPrompt,
+                                    record = record,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                ).renderedToolCount
+                            } ?: 0,
                         statusMessage = "Loading model...",
                         errorMessage = null,
                     )
@@ -355,4 +628,88 @@ class CustomAppChatViewModel(
             },
         )
     }
+
+    private fun selectBatchRows(
+        goldRecords: List<GoldTsvRecord>,
+        mode: String,
+    ): List<GoldTsvRecord> =
+        when (mode) {
+            BATCH_RUN_MODE_FIRST_1 -> goldRecords.take(1)
+            BATCH_RUN_MODE_RANDOM_10 -> goldRecords.shuffled(Random(System.currentTimeMillis())).take(10)
+            BATCH_RUN_MODE_ALL -> goldRecords
+            else -> goldRecords.take(1)
+        }
+
+    private fun createBatchChat(originalChat: Chat): Chat =
+        appDB.addChat(
+            chatName = "Batch Session",
+            chatTemplate = originalChat.chatTemplate,
+            systemPrompt = "",
+            llmModelId = originalChat.llmModelId,
+            isTask = false,
+        ).copy(
+            minP = originalChat.minP,
+            temperature = originalChat.temperature,
+            nThreads = originalChat.nThreads,
+            useMmap = originalChat.useMmap,
+            useMlock = originalChat.useMlock,
+            contextSize = originalChat.contextSize,
+            contextSizeConsumed = 0,
+            chatTemplate = originalChat.chatTemplate,
+        ).also(appDB::updateChat)
+
+    private suspend fun loadModelSuspend(chat: Chat, modelPath: String) =
+        suspendCancellableCoroutine<Unit> { continuation ->
+            smolLMManager.load(
+                chat = chat,
+                modelPath = modelPath,
+                params =
+                    SmolLM.InferenceParams(
+                        minP = chat.minP,
+                        temperature = chat.temperature,
+                        storeChats = true,
+                        contextSize = chat.contextSize.toLong(),
+                        chatTemplate = chat.chatTemplate,
+                        numThreads = chat.nThreads,
+                        useMmap = chat.useMmap,
+                        useMlock = chat.useMlock,
+                    ),
+                onError = { error ->
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(error)
+                    }
+                },
+                onSuccess = {
+                    if (continuation.isActive) {
+                        continuation.resume(Unit)
+                    }
+                },
+            )
+        }
+
+    private suspend fun getResponseSuspend(query: String): SmolLMManager.SmolLMResponse =
+        suspendCancellableCoroutine { continuation ->
+            smolLMManager.getResponse(
+                query = query,
+                responseTransform = { it.trim() },
+                onPartialResponseGenerated = { partial ->
+                    _uiState.update { state -> state.copy(partialResponse = partial) }
+                },
+                onSuccess = { response ->
+                    if (continuation.isActive) {
+                        continuation.resume(response)
+                    }
+                },
+                onCancelled = {
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(IllegalStateException("Batch run cancelled."))
+                    }
+                },
+                onError = { error ->
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(error)
+                    }
+                },
+            )
+        }
 }

@@ -22,6 +22,7 @@ import java.io.FileOutputStream
 import java.nio.file.Paths
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
+private const val PREF_SETUP_PROMPT_PRESET_KEY = "custom_app.setup.prompt_preset_key"
 private const val PREF_SETUP_SYSTEM_PROMPT = "custom_app.setup.system_prompt"
 private const val PREF_SETUP_TEMPERATURE = "custom_app.setup.temperature"
 private const val PREF_SETUP_MIN_P = "custom_app.setup.min_p"
@@ -32,10 +33,59 @@ private const val PREF_SETUP_USE_MLOCK = "custom_app.setup.use_mlock"
 private const val PREF_SETUP_TSV_PATH = "custom_app.setup.tsv_path"
 private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
 
+const val PROMPT_PRESET_CUSTOM = "custom"
+const val PROMPT_PRESET_MODEL_A = "model_a"
+const val PROMPT_PRESET_MODEL_B = "model_b"
+const val PROMPT_PRESET_MODEL_C = "model_c"
+
+private val modelAPromptTemplate =
+    """
+    <|im_start|>system
+    Given a user query and a list of available tools, select the most appropriate tool and generate the corresponding parameters. If no tool matches the query, set the tool to 'None'. Only use parameter values that are explicitly stated or can be reasonably inferred from the query.
+     <|tool|>{tools}<|/tool|><|im_end|>
+    <|im_start|>user
+    User Query: {rewrited_query}<|im_end|>
+    <|im_start|>assistant
+    <think>
+
+    </think>
+    """.trimIndent()
+
+data class PromptPresetOption(
+    val key: String,
+    val label: String,
+    val template: String?,
+)
+
+val promptPresetOptions =
+    listOf(
+        PromptPresetOption(
+            key = PROMPT_PRESET_CUSTOM,
+            label = "Custom",
+            template = null,
+        ),
+        PromptPresetOption(
+            key = PROMPT_PRESET_MODEL_A,
+            label = "Model A",
+            template = modelAPromptTemplate,
+        ),
+        PromptPresetOption(
+            key = PROMPT_PRESET_MODEL_B,
+            label = "Model B",
+            template = "You are Model B.\nReason conservatively and answer in JSON.",
+        ),
+        PromptPresetOption(
+            key = PROMPT_PRESET_MODEL_C,
+            label = "Model C",
+            template = "You are Model C.\nFocus on accuracy and answer in JSON.",
+        ),
+    )
+
 data class CustomAppSetupUiState(
     val availableModels: List<LLMModel> = emptyList(),
     val selectedModelId: Long = -1L,
     val selectedModel: LLMModel? = null,
+    val selectedPromptPresetKey: String = PROMPT_PRESET_CUSTOM,
     val systemPrompt: String = "You are a helpful assistant.",
     val temperatureText: String = "0.8",
     val minPText: String = "0.1",
@@ -104,6 +154,20 @@ class CustomAppSetupViewModel(
     }
 
     fun updateSystemPrompt(value: String) = updateAndPersist { it.copy(systemPrompt = value) }
+
+    fun selectPromptPreset(presetKey: String) {
+        val preset = promptPresetOptions.firstOrNull { it.key == presetKey } ?: return
+        updateAndPersist { state ->
+            if (preset.key == PROMPT_PRESET_CUSTOM) {
+                state.copy(selectedPromptPresetKey = PROMPT_PRESET_CUSTOM)
+            } else {
+                state.copy(
+                    selectedPromptPresetKey = preset.key,
+                    systemPrompt = preset.template ?: state.systemPrompt,
+                )
+            }
+        }
+    }
 
     fun updateTemperature(value: String) =
         updateAndPersist { it.copy(temperatureText = value, errorMessage = null) }
@@ -242,6 +306,7 @@ class CustomAppSetupViewModel(
     private fun persistCurrentState() {
         val state = _uiState.value
         sharedPrefStore.put(PREF_SETUP_MODEL_ID, state.selectedModelId)
+        sharedPrefStore.put(PREF_SETUP_PROMPT_PRESET_KEY, state.selectedPromptPresetKey)
         sharedPrefStore.put(PREF_SETUP_SYSTEM_PROMPT, state.systemPrompt)
         sharedPrefStore.put(PREF_SETUP_TEMPERATURE, state.temperatureText)
         sharedPrefStore.put(PREF_SETUP_MIN_P, state.minPText)
@@ -256,6 +321,8 @@ class CustomAppSetupViewModel(
     private fun loadInitialState(): CustomAppSetupUiState =
         CustomAppSetupUiState(
             selectedModelId = sharedPrefStore.get(PREF_SETUP_MODEL_ID, -1L),
+            selectedPromptPresetKey =
+                sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_CUSTOM),
             systemPrompt = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "You are a helpful assistant."),
             temperatureText = sharedPrefStore.get(PREF_SETUP_TEMPERATURE, "0.8"),
             minPText = sharedPrefStore.get(PREF_SETUP_MIN_P, "0.1"),
