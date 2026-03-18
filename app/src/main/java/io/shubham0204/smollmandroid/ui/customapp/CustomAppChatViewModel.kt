@@ -78,6 +78,12 @@ data class CustomAppChatUiState(
     val isGenerating: Boolean = false,
     val isModelReady: Boolean = false,
     val generationSpeedTokensPerSec: Float? = null,
+    val prefillSpeedTokensPerSec: Float? = null,
+    val prefillTimeMs: Long? = null,
+    val generationTimeMs: Long? = null,
+    val totalTimeMs: Long? = null,
+    val promptTokenCount: Int? = null,
+    val generatedTokenCount: Int? = null,
     val generationTimeSecs: Int? = null,
     val contextLengthUsed: Int? = null,
     val parsedPrediction: ParsedToolCall? = null,
@@ -95,6 +101,11 @@ data class CustomAppChatUiState(
     val batchTotalCount: Int = 0,
     val batchCompletedCount: Int = 0,
     val batchFailedCount: Int = 0,
+    val batchTotalPrefillTimeMs: Long = 0,
+    val batchTotalGenerationTimeMs: Long = 0,
+    val batchTotalGeneratedTokens: Int = 0,
+    val batchGenerationSpeedSum: Float = 0f,
+    val batchPrefillSpeedSum: Float = 0f,
     val batchLatestUniqueIdx: String? = null,
     val batchStatusMessage: String? = null,
     val evaluationHistory: List<EvaluationResult> = emptyList(),
@@ -122,6 +133,18 @@ data class CustomAppChatUiState(
         get() =
             if (batchCompletedCount <= 0) null
             else batchSuccessCount.toFloat() / batchCompletedCount.toFloat()
+
+    val batchAveragePrefillTimeMs: Long?
+        get() = if (batchCompletedCount <= 0) null else batchTotalPrefillTimeMs / batchCompletedCount
+
+    val batchAverageGenerationTimeMs: Long?
+        get() = if (batchCompletedCount <= 0) null else batchTotalGenerationTimeMs / batchCompletedCount
+
+    val batchAverageGenerationSpeed: Float?
+        get() = if (batchCompletedCount <= 0) null else batchGenerationSpeedSum / batchCompletedCount.toFloat()
+
+    val batchAveragePrefillSpeed: Float?
+        get() = if (batchCompletedCount <= 0) null else batchPrefillSpeedSum / batchCompletedCount.toFloat()
 }
 
 @KoinViewModel
@@ -170,6 +193,12 @@ class CustomAppChatViewModel(
                 inputText = "",
                 partialResponse = "",
                 isGenerating = true,
+                prefillSpeedTokensPerSec = null,
+                prefillTimeMs = null,
+                generationTimeMs = null,
+                totalTimeMs = null,
+                promptTokenCount = null,
+                generatedTokenCount = null,
                 parsedPrediction = null,
                 parseErrorMessage = null,
                 latestRawModelOutput = null,
@@ -207,6 +236,12 @@ class CustomAppChatViewModel(
                         partialResponse = "",
                         isGenerating = false,
                         generationSpeedTokensPerSec = response.generationSpeed,
+                        prefillSpeedTokensPerSec = response.prefillSpeed,
+                        prefillTimeMs = response.prefillTimeMs,
+                        generationTimeMs = response.generationTimeMs,
+                        totalTimeMs = response.totalTimeMs,
+                        promptTokenCount = response.promptTokenCount,
+                        generatedTokenCount = response.generatedTokenCount,
                         generationTimeSecs = response.generationTimeSecs,
                         contextLengthUsed = response.contextLengthUsed,
                         parsedPrediction = parseResult.getOrNull(),
@@ -231,6 +266,12 @@ class CustomAppChatViewModel(
                     it.copy(
                         isGenerating = false,
                         partialResponse = "",
+                        prefillSpeedTokensPerSec = null,
+                        prefillTimeMs = null,
+                        generationTimeMs = null,
+                        totalTimeMs = null,
+                        promptTokenCount = null,
+                        generatedTokenCount = null,
                         parsedPrediction = null,
                         parseErrorMessage = null,
                         latestRawModelOutput = null,
@@ -245,6 +286,12 @@ class CustomAppChatViewModel(
                     it.copy(
                         isGenerating = false,
                         partialResponse = "",
+                        prefillSpeedTokensPerSec = null,
+                        prefillTimeMs = null,
+                        generationTimeMs = null,
+                        totalTimeMs = null,
+                        promptTokenCount = null,
+                        generatedTokenCount = null,
                         parsedPrediction = null,
                         parseErrorMessage = null,
                         latestRawModelOutput = null,
@@ -275,6 +322,12 @@ class CustomAppChatViewModel(
                 isGenerating = false,
                 isModelReady = false,
                 generationSpeedTokensPerSec = null,
+                prefillSpeedTokensPerSec = null,
+                prefillTimeMs = null,
+                generationTimeMs = null,
+                totalTimeMs = null,
+                promptTokenCount = null,
+                generatedTokenCount = null,
                 generationTimeSecs = null,
                 contextLengthUsed = null,
                 parsedPrediction = null,
@@ -285,6 +338,11 @@ class CustomAppChatViewModel(
                 latestEvaluationResult = null,
                 macroAccuracy = null,
                 evaluationErrorMessage = null,
+                batchTotalPrefillTimeMs = 0,
+                batchTotalGenerationTimeMs = 0,
+                batchTotalGeneratedTokens = 0,
+                batchGenerationSpeedSum = 0f,
+                batchPrefillSpeedSum = 0f,
                 statusMessage = "Conversation cleared.",
                 errorMessage = null,
             )
@@ -328,10 +386,21 @@ class CustomAppChatViewModel(
                         isBatchRunning = true,
                         isGenerating = false,
                         batchConversationMessages = emptyList(),
+                        prefillSpeedTokensPerSec = null,
+                        prefillTimeMs = null,
+                        generationTimeMs = null,
+                        totalTimeMs = null,
+                        promptTokenCount = null,
+                        generatedTokenCount = null,
                         latestRawModelOutput = null,
                         batchTotalCount = selectedRows.size,
                         batchCompletedCount = 0,
                         batchFailedCount = 0,
+                        batchTotalPrefillTimeMs = 0,
+                        batchTotalGenerationTimeMs = 0,
+                        batchTotalGeneratedTokens = 0,
+                        batchGenerationSpeedSum = 0f,
+                        batchPrefillSpeedSum = 0f,
                         batchLatestUniqueIdx = null,
                         batchStatusMessage = "Starting batch run...",
                         statusMessage = null,
@@ -399,6 +468,12 @@ class CustomAppChatViewModel(
                             it.copy(
                                 partialResponse = "",
                                 generationSpeedTokensPerSec = response.generationSpeed,
+                                prefillSpeedTokensPerSec = response.prefillSpeed,
+                                prefillTimeMs = response.prefillTimeMs,
+                                generationTimeMs = response.generationTimeMs,
+                                totalTimeMs = response.totalTimeMs,
+                                promptTokenCount = response.promptTokenCount,
+                                generatedTokenCount = response.generatedTokenCount,
                                 generationTimeSecs = response.generationTimeSecs,
                                 contextLengthUsed = response.contextLengthUsed,
                                 batchConversationMessages =
@@ -414,6 +489,16 @@ class CustomAppChatViewModel(
                                 batchFailedCount =
                                     if (isFailed) currentUiState.batchFailedCount + 1
                                     else currentUiState.batchFailedCount,
+                                batchTotalPrefillTimeMs =
+                                    currentUiState.batchTotalPrefillTimeMs + response.prefillTimeMs,
+                                batchTotalGenerationTimeMs =
+                                    currentUiState.batchTotalGenerationTimeMs + response.generationTimeMs,
+                                batchTotalGeneratedTokens =
+                                    currentUiState.batchTotalGeneratedTokens + response.generatedTokenCount,
+                                batchGenerationSpeedSum =
+                                    currentUiState.batchGenerationSpeedSum + response.generationSpeed,
+                                batchPrefillSpeedSum =
+                                    currentUiState.batchPrefillSpeedSum + response.prefillSpeed,
                                 batchStatusMessage =
                                     "Completed ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
                             )

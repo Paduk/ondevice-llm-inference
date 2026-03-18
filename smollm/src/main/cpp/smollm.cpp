@@ -41,7 +41,43 @@ Java_io_shubham0204_smollm_SmolLM_addChatMessage(JNIEnv* env, jobject thiz, jlon
 extern "C" JNIEXPORT jfloat JNICALL
 Java_io_shubham0204_smollm_SmolLM_getResponseGenerationSpeed(JNIEnv* env, jobject thiz, jlong modelPtr) {
     auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
-    return llmInference->getResponseGenerationTime();
+    return llmInference->getResponseGenerationSpeed();
+}
+
+extern "C" JNIEXPORT jfloat JNICALL
+Java_io_shubham0204_smollm_SmolLM_getResponsePrefillSpeed(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return llmInference->getResponsePrefillSpeed();
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_shubham0204_smollm_SmolLM_getResponsePrefillTimeMs(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return static_cast<jlong>(llmInference->getResponsePrefillTimeMs());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_shubham0204_smollm_SmolLM_getResponseGenerationTimeMs(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return static_cast<jlong>(llmInference->getResponseGenerationTimeMs());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_io_shubham0204_smollm_SmolLM_getResponseTotalTimeMs(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return static_cast<jlong>(llmInference->getResponseTotalTimeMs());
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_io_shubham0204_smollm_SmolLM_getPromptTokenCount(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return static_cast<jint>(llmInference->getPromptTokenCount());
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_io_shubham0204_smollm_SmolLM_getGeneratedTokenCount(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    return static_cast<jint>(llmInference->getGeneratedTokenCount());
 }
 
 extern "C" JNIEXPORT jint JNICALL

@@ -58,45 +58,49 @@
 - parser can tolerate both JSON-style and Python-style quoted object outputs
 - batch raw outputs remain visible until a new batch run starts
 - parser and evaluator are aligned with the real `plan + arguments` tool-call schema
+- runtime metrics distinguish prefill and generation without overloading the main screen
 
 ## Execution Order
 
-1. [task-01-scope-lock.md](docs/custom-app/tasks/task-01-scope-lock.md)
-2. [task-02-app-entry-flow.md](docs/custom-app/tasks/task-02-app-entry-flow.md)
-3. [task-03-setup-screen.md](docs/custom-app/tasks/task-03-setup-screen.md)
-4. [task-04-multiturn-chat.md](docs/custom-app/tasks/task-04-multiturn-chat.md)
-5. [task-05-runtime-metrics.md](docs/custom-app/tasks/task-05-runtime-metrics.md)
-6. [task-06-json-parser.md](docs/custom-app/tasks/task-06-json-parser.md)
-7. [task-07-tsv-loader.md](docs/custom-app/tasks/task-07-tsv-loader.md)
-8. [task-08-macro-accuracy.md](docs/custom-app/tasks/task-08-macro-accuracy.md)
-9. [task-09-legacy-flow-removal.md](docs/custom-app/tasks/task-09-legacy-flow-removal.md)
-10. [task-10-cleanup.md](docs/custom-app/tasks/task-10-cleanup.md)
-11. [task-11-prompt-preset-spec.md](docs/custom-app/tasks/task-11-prompt-preset-spec.md)
-12. [task-12-prompt-preset-ui.md](docs/custom-app/tasks/task-12-prompt-preset-ui.md)
-13. [task-13-prompt-template-renderer.md](docs/custom-app/tasks/task-13-prompt-template-renderer.md)
-14. [task-14-batch-run-mode-ui.md](docs/custom-app/tasks/task-14-batch-run-mode-ui.md)
-15. [task-15-batch-inference-runner.md](docs/custom-app/tasks/task-15-batch-inference-runner.md)
-16. [task-16-batch-evaluation-summary.md](docs/custom-app/tasks/task-16-batch-evaluation-summary.md)
-17. [task-17-tools-injection-spec.md](docs/custom-app/tasks/task-17-tools-injection-spec.md)
-18. [task-18-api-metadata-assets-loader.md](docs/custom-app/tasks/task-18-api-metadata-assets-loader.md)
-19. [task-19-tools-placeholder-renderer.md](docs/custom-app/tasks/task-19-tools-placeholder-renderer.md)
-20. [task-20-tools-batch-wiring.md](docs/custom-app/tasks/task-20-tools-batch-wiring.md)
-21. [task-21-tools-debug-summary.md](docs/custom-app/tasks/task-21-tools-debug-summary.md)
-22. [task-22-simple-api-spec.md](docs/custom-app/tasks/task-22-simple-api-spec.md)
-23. [task-23-simple-api-asset-loader.md](docs/custom-app/tasks/task-23-simple-api-asset-loader.md)
-24. [task-24-simple-tools-renderer-wiring.md](docs/custom-app/tasks/task-24-simple-tools-renderer-wiring.md)
-25. [task-25-batch-single-load-spec.md](docs/custom-app/tasks/task-25-batch-single-load-spec.md)
-26. [task-26-native-reset-api.md](docs/custom-app/tasks/task-26-native-reset-api.md)
-27. [task-27-batch-runner-single-load.md](docs/custom-app/tasks/task-27-batch-runner-single-load.md)
-28. [task-28-model-parity-audit.md](docs/custom-app/tasks/task-28-model-parity-audit.md)
-29. [task-29-align-sampling-defaults.md](docs/custom-app/tasks/task-29-align-sampling-defaults.md)
-30. [task-30-raw-prompt-batch-path.md](docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
-31. [task-31-json-and-length-parity.md](docs/custom-app/tasks/task-31-json-and-length-parity.md)
-32. [task-32-tolerant-json-parser.md](docs/custom-app/tasks/task-32-tolerant-json-parser.md)
-33. [task-33-batch-raw-output-retention.md](docs/custom-app/tasks/task-33-batch-raw-output-retention.md)
-34. [task-34-tool-call-schema-spec.md](docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
-35. [task-35-nested-tool-call-parser.md](docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
-36. [task-36-structural-evaluator.md](docs/custom-app/tasks/task-36-structural-evaluator.md)
+1. [task-01-scope-lock.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-01-scope-lock.md)
+2. [task-02-app-entry-flow.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-02-app-entry-flow.md)
+3. [task-03-setup-screen.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-03-setup-screen.md)
+4. [task-04-multiturn-chat.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-04-multiturn-chat.md)
+5. [task-05-runtime-metrics.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-05-runtime-metrics.md)
+6. [task-06-json-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-06-json-parser.md)
+7. [task-07-tsv-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-07-tsv-loader.md)
+8. [task-08-macro-accuracy.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-08-macro-accuracy.md)
+9. [task-09-legacy-flow-removal.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-09-legacy-flow-removal.md)
+10. [task-10-cleanup.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-10-cleanup.md)
+11. [task-11-prompt-preset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-11-prompt-preset-spec.md)
+12. [task-12-prompt-preset-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-12-prompt-preset-ui.md)
+13. [task-13-prompt-template-renderer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-13-prompt-template-renderer.md)
+14. [task-14-batch-run-mode-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-14-batch-run-mode-ui.md)
+15. [task-15-batch-inference-runner.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-15-batch-inference-runner.md)
+16. [task-16-batch-evaluation-summary.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-16-batch-evaluation-summary.md)
+17. [task-17-tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-17-tools-injection-spec.md)
+18. [task-18-api-metadata-assets-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-18-api-metadata-assets-loader.md)
+19. [task-19-tools-placeholder-renderer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-19-tools-placeholder-renderer.md)
+20. [task-20-tools-batch-wiring.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-20-tools-batch-wiring.md)
+21. [task-21-tools-debug-summary.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-21-tools-debug-summary.md)
+22. [task-22-simple-api-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-22-simple-api-spec.md)
+23. [task-23-simple-api-asset-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-23-simple-api-asset-loader.md)
+24. [task-24-simple-tools-renderer-wiring.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-24-simple-tools-renderer-wiring.md)
+25. [task-25-batch-single-load-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-25-batch-single-load-spec.md)
+26. [task-26-native-reset-api.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-26-native-reset-api.md)
+27. [task-27-batch-runner-single-load.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-27-batch-runner-single-load.md)
+28. [task-28-model-parity-audit.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-28-model-parity-audit.md)
+29. [task-29-align-sampling-defaults.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-29-align-sampling-defaults.md)
+30. [task-30-raw-prompt-batch-path.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
+31. [task-31-json-and-length-parity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-31-json-and-length-parity.md)
+32. [task-32-tolerant-json-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-32-tolerant-json-parser.md)
+33. [task-33-batch-raw-output-retention.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-33-batch-raw-output-retention.md)
+34. [task-34-tool-call-schema-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
+35. [task-35-nested-tool-call-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
+36. [task-36-structural-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-36-structural-evaluator.md)
+37. [task-37-runtime-metric-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-37-runtime-metric-spec.md)
+38. [task-38-native-prefill-generation-metrics.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-38-native-prefill-generation-metrics.md)
+39. [task-39-expandable-runtime-metrics-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-39-expandable-runtime-metrics-ui.md)
 
 ## Checklist
 
@@ -143,6 +147,9 @@
 - [x] Freeze the real tool-call output schema
 - [x] Parse nested tool-call outputs
 - [x] Compare tool-call outputs structurally against TSV gold answers
+- [x] Freeze prefill and generation metric definitions
+- [x] Expose separate prefill and generation metrics from native inference
+- [x] Show detailed metrics behind an expandable UI
 
 ## Agent Update Rules
 
@@ -203,3 +210,7 @@ When an agent completes a task, update:
 - 2026-03-18: Task 34 completed. The docs now freeze the real tool-calling output schema around top-level `plan` plus nested `arguments`, and evaluation is explicitly redirected from legacy flat-string comparison toward structural normalization and comparison.
 - 2026-03-18: Task 35 completed. The app parser now reads nested tool-call outputs from both strict JSON and Python-style quoted objects, and the parse-result UI now reflects top-level `plan` plus pretty-printed nested `arguments` instead of the outdated flat prediction fields.
 - 2026-03-18: Task 36 completed. The evaluator now parses TSV `answer` values as structured tool calls, canonicalizes model output and gold output recursively before comparison, and scores correctness structurally instead of relying on raw string equality.
+- 2026-03-18: Runtime-metrics follow-up planning added. The next work splits prefill and generation metrics in the native path, then exposes only core metrics by default while moving detailed per-case and batch aggregates behind an expandable section.
+- 2026-03-18: Task 37 completed. Runtime metrics are now frozen around separate prefill, generation, and total-time definitions, incremental batch totals and averages, and an inline expandable UI that keeps only core metrics always visible.
+- 2026-03-18: Task 38 completed. Native inference now exposes separate prefill and generation timing, prompt token count, generated token count, and prefill or generation speeds through JNI, Kotlin, and manager response objects so the UI layer can render split runtime metrics next.
+- 2026-03-18: Task 39 completed. The custom app now keeps only core runtime metrics always visible, moves detailed per-case and batch metrics behind an inline expandable section, and updates batch totals and averages incrementally as rows complete.

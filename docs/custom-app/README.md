@@ -134,6 +134,15 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-36-structural-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-36-structural-evaluator.md)
   Compare model output and TSV gold answers structurally after canonical normalization.
 
+- [task-37-runtime-metric-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-37-runtime-metric-spec.md)
+  Freeze prefill versus generation metric definitions, batch aggregates, and the default-versus-expanded UI split.
+
+- [task-38-native-prefill-generation-metrics.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-38-native-prefill-generation-metrics.md)
+  Expose separate prefill and generation metrics from native inference through Kotlin and manager layers.
+
+- [task-39-expandable-runtime-metrics-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-39-expandable-runtime-metrics-ui.md)
+  Show only core metrics by default and move detailed per-case and batch metrics into an expandable section.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
@@ -171,6 +180,9 @@ Use this map first, then open only the task/spec files needed for the current im
 
 - [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
   The actual `plan` plus nested `arguments` schema used by the current tool-calling model outputs and TSV gold answers.
+
+- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+  Definitions for prefill, generation, total-time metrics, batch aggregates, and the preferred expandable UI presentation.
 
 ## Recommended Agent Workflow
 

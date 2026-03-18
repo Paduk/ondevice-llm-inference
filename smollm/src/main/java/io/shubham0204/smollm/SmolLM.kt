@@ -233,6 +233,36 @@ class SmolLM {
         return getResponseGenerationSpeed(nativePtr)
     }
 
+    fun getResponsePrefillSpeed(): Float {
+        verifyHandle()
+        return getResponsePrefillSpeed(nativePtr)
+    }
+
+    fun getResponsePrefillTimeMs(): Long {
+        verifyHandle()
+        return getResponsePrefillTimeMs(nativePtr)
+    }
+
+    fun getResponseGenerationTimeMs(): Long {
+        verifyHandle()
+        return getResponseGenerationTimeMs(nativePtr)
+    }
+
+    fun getResponseTotalTimeMs(): Long {
+        verifyHandle()
+        return getResponseTotalTimeMs(nativePtr)
+    }
+
+    fun getPromptTokenCount(): Int {
+        verifyHandle()
+        return getPromptTokenCount(nativePtr)
+    }
+
+    fun getGeneratedTokenCount(): Int {
+        verifyHandle()
+        return getGeneratedTokenCount(nativePtr)
+    }
+
     /**
      * Returns the number of tokens consumed by the LLM's context window The context of the LLM is
      * roughly the output of, tokenize(apply_chat_template(messages_in_conversation))
@@ -350,6 +380,18 @@ class SmolLM {
     private external fun addChatMessage(modelPtr: Long, message: String, role: String)
 
     private external fun getResponseGenerationSpeed(modelPtr: Long): Float
+
+    private external fun getResponsePrefillSpeed(modelPtr: Long): Float
+
+    private external fun getResponsePrefillTimeMs(modelPtr: Long): Long
+
+    private external fun getResponseGenerationTimeMs(modelPtr: Long): Long
+
+    private external fun getResponseTotalTimeMs(modelPtr: Long): Long
+
+    private external fun getPromptTokenCount(modelPtr: Long): Int
+
+    private external fun getGeneratedTokenCount(modelPtr: Long): Int
 
     private external fun getContextSizeUsed(modelPtr: Long): Int
 

@@ -58,6 +58,7 @@
 - parser can tolerate both JSON-style and Python-style quoted object outputs
 - batch raw outputs remain visible until a new batch run starts
 - parser and evaluator are aligned with the real `plan + arguments` tool-call schema
+- runtime metrics distinguish prefill and generation without overloading the main screen
 
 ## Execution Order
 
@@ -97,6 +98,9 @@
 34. [task-34-tool-call-schema-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
 35. [task-35-nested-tool-call-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
 36. [task-36-structural-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-36-structural-evaluator.md)
+37. [task-37-runtime-metric-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-37-runtime-metric-spec.md)
+38. [task-38-native-prefill-generation-metrics.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-38-native-prefill-generation-metrics.md)
+39. [task-39-expandable-runtime-metrics-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-39-expandable-runtime-metrics-ui.md)
 
 ## Checklist
 
@@ -143,6 +147,9 @@
 - [x] Freeze the real tool-call output schema
 - [x] Parse nested tool-call outputs
 - [x] Compare tool-call outputs structurally against TSV gold answers
+- [x] Freeze prefill and generation metric definitions
+- [x] Expose separate prefill and generation metrics from native inference
+- [x] Show detailed metrics behind an expandable UI
 
 ## Agent Update Rules
 
@@ -203,3 +210,7 @@ When an agent completes a task, update:
 - 2026-03-18: Task 34 completed. The docs now freeze the real tool-calling output schema around top-level `plan` plus nested `arguments`, and evaluation is explicitly redirected from legacy flat-string comparison toward structural normalization and comparison.
 - 2026-03-18: Task 35 completed. The app parser now reads nested tool-call outputs from both strict JSON and Python-style quoted objects, and the parse-result UI now reflects top-level `plan` plus pretty-printed nested `arguments` instead of the outdated flat prediction fields.
 - 2026-03-18: Task 36 completed. The evaluator now parses TSV `answer` values as structured tool calls, canonicalizes model output and gold output recursively before comparison, and scores correctness structurally instead of relying on raw string equality.
+- 2026-03-18: Runtime-metrics follow-up planning added. The next work splits prefill and generation metrics in the native path, then exposes only core metrics by default while moving detailed per-case and batch aggregates behind an expandable section.
+- 2026-03-18: Task 37 completed. Runtime metrics are now frozen around separate prefill, generation, and total-time definitions, incremental batch totals and averages, and an inline expandable UI that keeps only core metrics always visible.
+- 2026-03-18: Task 38 completed. Native inference now exposes separate prefill and generation timing, prompt token count, generated token count, and prefill or generation speeds through JNI, Kotlin, and manager response objects so the UI layer can render split runtime metrics next.
+- 2026-03-18: Task 39 completed. The custom app now keeps only core runtime metrics always visible, moves detailed per-case and batch metrics behind an inline expandable section, and updates batch totals and averages incrementally as rows complete.

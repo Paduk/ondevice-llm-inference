@@ -30,7 +30,6 @@ import org.koin.core.annotation.Single
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
-import kotlin.time.measureTime
 
 private const val LOGTAG = "[SmolLMManager-Kt]"
 private val LOGD: (String) -> Unit = { Log.d(LOGTAG, it) }
@@ -61,7 +60,13 @@ class SmolLMManager(private val appDB: AppDB) {
     data class SmolLMResponse(
         val response: String,
         val generationSpeed: Float,
+        val prefillSpeed: Float,
+        val prefillTimeMs: Long,
+        val generationTimeMs: Long,
+        val totalTimeMs: Long,
         val generationTimeSecs: Int,
+        val promptTokenCount: Int,
+        val generatedTokenCount: Int,
         val contextLengthUsed: Int,
     )
 
@@ -173,12 +178,10 @@ class SmolLMManager(private val appDB: AppDB) {
                     isInferenceOn = true
                     var response = ""
 
-                    val duration = measureTime {
-                        instance.getResponseAsFlow(query).collect { piece ->
-                            response += piece
-                            withContext(Dispatchers.Main) {
-                                onPartialResponseGenerated(response)
-                            }
+                    instance.getResponseAsFlow(query).collect { piece ->
+                        response += piece
+                        withContext(Dispatchers.Main) {
+                            onPartialResponseGenerated(response)
                         }
                     }
 
@@ -198,7 +201,13 @@ class SmolLMManager(private val appDB: AppDB) {
                             SmolLMResponse(
                                 response = response,
                                 generationSpeed = instance.getResponseGenerationSpeed(),
-                                generationTimeSecs = duration.inWholeSeconds.toInt(),
+                                prefillSpeed = instance.getResponsePrefillSpeed(),
+                                prefillTimeMs = instance.getResponsePrefillTimeMs(),
+                                generationTimeMs = instance.getResponseGenerationTimeMs(),
+                                totalTimeMs = instance.getResponseTotalTimeMs(),
+                                generationTimeSecs = (instance.getResponseTotalTimeMs() / 1000L).toInt(),
+                                promptTokenCount = instance.getPromptTokenCount(),
+                                generatedTokenCount = instance.getGeneratedTokenCount(),
                                 contextLengthUsed = instance.getContextLengthUsed(),
                             )
                         )
@@ -239,12 +248,10 @@ class SmolLMManager(private val appDB: AppDB) {
                     isInferenceOn = true
                     var response = ""
 
-                    val duration = measureTime {
-                        instance.getRawResponseAsFlow(prompt).collect { piece ->
-                            response += piece
-                            withContext(Dispatchers.Main) {
-                                onPartialResponseGenerated(response)
-                            }
+                    instance.getRawResponseAsFlow(prompt).collect { piece ->
+                        response += piece
+                        withContext(Dispatchers.Main) {
+                            onPartialResponseGenerated(response)
                         }
                     }
 
@@ -256,7 +263,13 @@ class SmolLMManager(private val appDB: AppDB) {
                             SmolLMResponse(
                                 response = response,
                                 generationSpeed = instance.getResponseGenerationSpeed(),
-                                generationTimeSecs = duration.inWholeSeconds.toInt(),
+                                prefillSpeed = instance.getResponsePrefillSpeed(),
+                                prefillTimeMs = instance.getResponsePrefillTimeMs(),
+                                generationTimeMs = instance.getResponseGenerationTimeMs(),
+                                totalTimeMs = instance.getResponseTotalTimeMs(),
+                                generationTimeSecs = (instance.getResponseTotalTimeMs() / 1000L).toInt(),
+                                promptTokenCount = instance.getPromptTokenCount(),
+                                generatedTokenCount = instance.getGeneratedTokenCount(),
                                 contextLengthUsed = instance.getContextLengthUsed(),
                             )
                         )

@@ -81,8 +81,44 @@ LLMInference::clearMessages() {
 }
 
 float
-LLMInference::getResponseGenerationTime() const {
-    return (float) _responseNumTokens / (_responseGenerationTime / 1e6);
+LLMInference::getResponseGenerationSpeed() const {
+    if (_responseGenerationTime <= 0 || _responseNumTokens <= 1) {
+        return 0.0f;
+    }
+    return (float) (_responseNumTokens - 1) / (_responseGenerationTime / 1e6);
+}
+
+float
+LLMInference::getResponsePrefillSpeed() const {
+    if (_prefillTimeUs <= 0 || _promptTokens.empty()) {
+        return 0.0f;
+    }
+    return (float) _promptTokens.size() / (_prefillTimeUs / 1e6);
+}
+
+int64_t
+LLMInference::getResponsePrefillTimeMs() const {
+    return _prefillTimeUs / 1000;
+}
+
+int64_t
+LLMInference::getResponseGenerationTimeMs() const {
+    return _responseGenerationTime / 1000;
+}
+
+int64_t
+LLMInference::getResponseTotalTimeMs() const {
+    return (_prefillTimeUs + _responseGenerationTime) / 1000;
+}
+
+int
+LLMInference::getPromptTokenCount() const {
+    return (int) _promptTokens.size();
+}
+
+int
+LLMInference::getGeneratedTokenCount() const {
+    return (int) _responseNumTokens;
 }
 
 int
@@ -97,8 +133,10 @@ LLMInference::resetState() {
     _cacheResponseTokens.clear();
     _promptTokens.clear();
     _formattedMessages.clear();
+    _prefillTimeUs = 0;
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
+    _hasCompletedPrefill = false;
     _nCtxUsed = 0;
 
     if (_batch != nullptr) {
@@ -117,8 +155,10 @@ LLMInference::startCompletion(const char *query) {
         _formattedMessages.clear();
         _formattedMessages = std::vector<char>(llama_n_ctx(_ctx));
     }
+    _prefillTimeUs = 0;
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
+    _hasCompletedPrefill = false;
     addChatMessage(query, "user");
     // apply the chat-template
     std::vector<common_chat_msg> messages;
@@ -144,8 +184,10 @@ LLMInference::startCompletion(const char *query) {
 
 void
 LLMInference::startRawCompletion(const char *prompt) {
+    _prefillTimeUs = 0;
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
+    _hasCompletedPrefill = false;
     _response.clear();
     _cacheResponseTokens.clear();
 
@@ -224,7 +266,12 @@ LLMInference::completionLoop() {
     }
     std::string piece = common_token_to_piece(_ctx, _currToken, true);
     auto end = ggml_time_us();
-    _responseGenerationTime += (end - start);
+    if (!_hasCompletedPrefill) {
+        _prefillTimeUs += (end - start);
+        _hasCompletedPrefill = true;
+    } else {
+        _responseGenerationTime += (end - start);
+    }
     _responseNumTokens += 1;
     _cacheResponseTokens += piece;
 

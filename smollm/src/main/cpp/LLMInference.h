@@ -32,8 +32,10 @@ class LLMInference {
     bool _storeChats;
 
     // response generation metrics
+    int64_t _prefillTimeUs          = 0;
     int64_t _responseGenerationTime = 0;
     long    _responseNumTokens      = 0;
+    bool    _hasCompletedPrefill    = false;
 
     // length of context window consumed during the conversation
     int _nCtxUsed = 0;
@@ -49,7 +51,19 @@ class LLMInference {
 
     void addChatMessage(const char* message, const char* role);
 
-    float getResponseGenerationTime() const;
+    float getResponseGenerationSpeed() const;
+
+    float getResponsePrefillSpeed() const;
+
+    int64_t getResponsePrefillTimeMs() const;
+
+    int64_t getResponseGenerationTimeMs() const;
+
+    int64_t getResponseTotalTimeMs() const;
+
+    int getPromptTokenCount() const;
+
+    int getGeneratedTokenCount() const;
 
     int getContextSizeUsed() const;
 
