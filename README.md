@@ -3,7 +3,7 @@
 ## Status
 
 - Overall status: `in_progress`
-- Current phase: `Phase 3`
+- Current phase: `Phase 5`
 - Current focus: `Physical-device validation`
 
 ## MVP Acceptance Criteria
@@ -21,7 +21,7 @@
 
 ## Phase 2 Acceptance Criteria
 
-- user can choose one of three predefined prompt presets from setup
+- user can choose one of four predefined prompt presets plus `Custom` from setup
 - selecting a preset replaces the current system prompt text
 - batch test can render prompts using TSV `query`, `rewrited_query`, and `conversation_history`
 - batch test can run first 1, random 10, or all TSV rows
@@ -29,11 +29,35 @@
 
 ## Phase 3 Acceptance Criteria
 
-- the app can load `api_v3.0.1.jsonl` from bundled assets
+- the app can load bundled tool metadata from app assets
 - the prompt renderer supports `{tools}`
-- `{tools}` is built from TSV `candidates` and bundled API metadata
+- `{tools}` is built from TSV `candidates` and bundled simple API metadata
 - batch prompts can include both TSV placeholders and `{tools}`
 - the UI can show tools-rendering warnings when metadata is missing
+
+## Phase 3 Correction Acceptance Criteria
+
+- `{tools}` uses `simple_api.json` as the only source of truth
+- the simple asset loader exposes `plan -> parameter_list`
+- preview and batch rendering use the same simple tools data
+- rendered tools lines match the Python SFT path format
+
+## Phase 4 Acceptance Criteria
+
+- batch run loads the model once per run
+- each batch row executes with a fresh single-turn context
+- row-to-row context leakage is prevented without reload-per-row
+- interactive chat is restored after batch completion or stop
+
+## Phase 5 Acceptance Criteria
+
+- Python and APK parity checks are documented
+- Android sampling defaults can be aligned with Python for controlled comparison
+- Android has a documented or implemented raw-prompt parity path
+- remaining JSON and length-control gaps are clearly reduced or documented
+- parser can tolerate both JSON-style and Python-style quoted object outputs
+- batch raw outputs remain visible until a new batch run starts
+- parser and evaluator are aligned with the real `plan + arguments` tool-call schema
 
 ## Execution Order
 
@@ -58,6 +82,21 @@
 19. [task-19-tools-placeholder-renderer.md](docs/custom-app/tasks/task-19-tools-placeholder-renderer.md)
 20. [task-20-tools-batch-wiring.md](docs/custom-app/tasks/task-20-tools-batch-wiring.md)
 21. [task-21-tools-debug-summary.md](docs/custom-app/tasks/task-21-tools-debug-summary.md)
+22. [task-22-simple-api-spec.md](docs/custom-app/tasks/task-22-simple-api-spec.md)
+23. [task-23-simple-api-asset-loader.md](docs/custom-app/tasks/task-23-simple-api-asset-loader.md)
+24. [task-24-simple-tools-renderer-wiring.md](docs/custom-app/tasks/task-24-simple-tools-renderer-wiring.md)
+25. [task-25-batch-single-load-spec.md](docs/custom-app/tasks/task-25-batch-single-load-spec.md)
+26. [task-26-native-reset-api.md](docs/custom-app/tasks/task-26-native-reset-api.md)
+27. [task-27-batch-runner-single-load.md](docs/custom-app/tasks/task-27-batch-runner-single-load.md)
+28. [task-28-model-parity-audit.md](docs/custom-app/tasks/task-28-model-parity-audit.md)
+29. [task-29-align-sampling-defaults.md](docs/custom-app/tasks/task-29-align-sampling-defaults.md)
+30. [task-30-raw-prompt-batch-path.md](docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
+31. [task-31-json-and-length-parity.md](docs/custom-app/tasks/task-31-json-and-length-parity.md)
+32. [task-32-tolerant-json-parser.md](docs/custom-app/tasks/task-32-tolerant-json-parser.md)
+33. [task-33-batch-raw-output-retention.md](docs/custom-app/tasks/task-33-batch-raw-output-retention.md)
+34. [task-34-tool-call-schema-spec.md](docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
+35. [task-35-nested-tool-call-parser.md](docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
+36. [task-36-structural-evaluator.md](docs/custom-app/tasks/task-36-structural-evaluator.md)
 
 ## Checklist
 
@@ -89,6 +128,21 @@
 - [x] Support `{tools}` placeholder rendering
 - [x] Use `{tools}` during batch prompt generation
 - [x] Show tools rendering diagnostics
+- [x] Freeze `simple_api.json` as the only tools source
+- [x] Load `simple_api.json` from assets
+- [x] Switch preview and batch tools rendering to `simple_api.json`
+- [x] Freeze single-load batch reset assumptions
+- [x] Add native reset API without model unload
+- [x] Refactor batch runner to use single model load
+- [x] Freeze Python-vs-APK parity checklist
+- [x] Align Android sampling defaults for parity tests
+- [x] Add or define raw-prompt parity path
+- [ ] Reduce JSON and generation-length parity gaps
+- [x] Tolerate Python-style quoted object outputs in parser fallback
+- [x] Preserve raw batch outputs until a new batch run starts
+- [x] Freeze the real tool-call output schema
+- [x] Parse nested tool-call outputs
+- [x] Compare tool-call outputs structurally against TSV gold answers
 
 ## Agent Update Rules
 
@@ -129,3 +183,23 @@ When an agent completes a task, update:
 - 2026-03-16: Task 19 completed. The prompt renderer now supports `{tools}` by parsing Python-style TSV candidate lists, deduplicating repeated plans, rendering available plan metadata line-by-line, and returning missing-plan warnings alongside the final prompt text.
 - 2026-03-16: Task 20 completed. Batch prompt preview and batch inference now both use bundled API metadata to render `{tools}`, and the current state keeps row-level missing-plan warnings so tooling issues can be surfaced in the UI.
 - 2026-03-16: Task 21 completed. The UI now shows tools-rendering diagnostics including parsed candidate count, rendered tool count, render status, missing-plan count, and the missing plan names for the latest preview or batch row.
+- 2026-03-17: Phase 3 correction planning added. `{tools}` will be corrected to use `simple_api.json` consistently so Android prompt construction matches the Python SFT inference path rather than the previous detailed JSONL metadata path.
+- 2026-03-17: Prompt preset UI was revised to a 2-column grid with `Rewrite-Qwen3`, `Base-Qwen3`, `Rewrite-Phi`, `Base-Phi`, and `Custom`. `Custom` now clears the system prompt to an empty string when selected, and old stored preset keys fall back safely to `Custom`.
+- 2026-03-17: Task 22 completed. The docs now freeze `simple_api.json` as the only `{tools}` source, define rendering as `{plan}: {parameter_list}`, and move the correction flow focus to the simple asset loader.
+- 2026-03-17: Task 23 completed. `simple_api.json` is now bundled under app assets, and the asset store now loads and caches a `plan -> parameter_list` map while keeping temporary compatibility methods until Task 24 rewires preview and batch rendering.
+- 2026-03-17: Task 24 completed. Prompt preview and batch inference now both use `simple_api.json` through the simple asset loader, and `{tools}` is rendered as `{plan}: {parameter_list}` with missing-plan diagnostics preserved.
+- 2026-03-17: Phase 4 planning added. Batch inference will be optimized from reload-per-row to one model load per batch run plus row-level context resets, with native reset support added before the runner is refactored.
+- 2026-03-17: Task 25 completed. The batch optimization design is now frozen around one model load per batch run, row-level conversation and KV/cache resets, system-prompt re-priming, and interactive chat restoration after batch completion.
+- 2026-03-17: Task 26 completed. A native reset pathway now clears in-memory messages, prompt buffers, partial-response buffers, and llama KV/cache state without unloading model weights, and the Kotlin `SmolLM` wrapper exposes that reset API directly.
+- 2026-03-17: Task 27 completed. The batch runner now loads the batch model once, resets loaded state between rows instead of unloading and reloading, and relies on the batch job cleanup path to restore the interactive chat session after completion or cancellation.
+- 2026-03-18: Phase 5 planning added. Python-vs-APK quality gaps are now split into parity tasks covering model identity, sampling defaults, raw-prompt execution, and JSON or generation-length alignment.
+- 2026-03-18: Task 28 completed. The minimum checklist for meaningful Python-vs-APK quality comparison is now frozen, covering model identity, rendered prompt parity, tools rendering parity, sampling alignment, generation-length alignment, JSON-only expectations, and chat-template handling.
+- 2026-03-18: Task 29 completed. The custom app default temperature is now aligned to `0.0` for parity testing, while the remaining min-p and generation-length gaps are explicitly documented for later follow-up.
+- 2026-03-18: Task 30 completed. A raw-prompt execution path is now available in the native, Kotlin, and manager layers, and the batch runner uses that path so rendered prompts can be tested without extra chat-template wrapping.
+- 2026-03-18: Parser and batch-retention follow-up planning added. The next corrections split tolerant single-quote parsing and raw batch-output retention into Tasks 32 and 33 so usability gaps can be fixed without mixing parser and UI state changes.
+- 2026-03-18: Task 32 completed. The model-output parser still prefers strict JSON first, but now falls back to a tolerant quoted-object parser so Python-style single-quote outputs can be accepted when they still satisfy the required normalized schema.
+- 2026-03-18: Task 33 completed. Batch raw outputs are now retained in the visible conversation state independently from parse or evaluation success, and the retained batch outputs are cleared only when a new batch run starts or the whole conversation is reset.
+- 2026-03-18: Tool-call schema correction planning added. The next follow-up replaces the outdated flat prediction assumption with the actual `plan + arguments` schema from TSV `answer`, then updates parsing and evaluation to work on nested structured tool-call outputs.
+- 2026-03-18: Task 34 completed. The docs now freeze the real tool-calling output schema around top-level `plan` plus nested `arguments`, and evaluation is explicitly redirected from legacy flat-string comparison toward structural normalization and comparison.
+- 2026-03-18: Task 35 completed. The app parser now reads nested tool-call outputs from both strict JSON and Python-style quoted objects, and the parse-result UI now reflects top-level `plan` plus pretty-printed nested `arguments` instead of the outdated flat prediction fields.
+- 2026-03-18: Task 36 completed. The evaluator now parses TSV `answer` values as structured tool calls, canonicalizes model output and gold output recursively before comparison, and scores correctness structurally instead of relying on raw string equality.

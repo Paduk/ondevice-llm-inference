@@ -346,6 +346,29 @@ private fun ChatEvaluatePlaceholderScreen(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                    uiState.latestRawModelOutput?.let { raw ->
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            text = "Latest raw output",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = raw,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    uiState.latestRawModelOutputEscaped?.let { escaped ->
+                        Text(
+                            text = "Escaped debug view",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = escaped,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 } else {
                     Text(
                         text = "No parsed prediction yet.",

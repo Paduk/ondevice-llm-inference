@@ -82,6 +82,7 @@ data class CustomAppChatUiState(
     val contextLengthUsed: Int? = null,
     val parsedPrediction: ParsedToolCall? = null,
     val parseErrorMessage: String? = null,
+    val latestRawModelOutput: String? = null,
     val goldRecords: List<GoldTsvRecord> = emptyList(),
     val goldTsvName: String = "",
     val goldTsvLoadError: String? = null,
@@ -105,6 +106,9 @@ data class CustomAppChatUiState(
 ) {
     val conversationMessages: List<ChatMessage>
         get() = messages + batchConversationMessages.takeLast(10)
+
+    val latestRawModelOutputEscaped: String?
+        get() = latestRawModelOutput?.toEscapedDebugString()
 
     val batchSuccessCount: Int
         get() = (batchCompletedCount - batchFailedCount).coerceAtLeast(0)
@@ -168,6 +172,7 @@ class CustomAppChatViewModel(
                 isGenerating = true,
                 parsedPrediction = null,
                 parseErrorMessage = null,
+                latestRawModelOutput = null,
                 errorMessage = null,
                 statusMessage = "Generating response...",
             )
@@ -206,6 +211,7 @@ class CustomAppChatViewModel(
                         contextLengthUsed = response.contextLengthUsed,
                         parsedPrediction = parseResult.getOrNull(),
                         parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                        latestRawModelOutput = response.response,
                         evaluationHistory =
                             evaluationSummary.latestResult?.let { latest ->
                                 _uiState.value.evaluationHistory.filterNot {
@@ -227,6 +233,7 @@ class CustomAppChatViewModel(
                         partialResponse = "",
                         parsedPrediction = null,
                         parseErrorMessage = null,
+                        latestRawModelOutput = null,
                         latestEvaluationResult = null,
                         evaluationErrorMessage = null,
                         statusMessage = "Generation stopped.",
@@ -240,6 +247,7 @@ class CustomAppChatViewModel(
                         partialResponse = "",
                         parsedPrediction = null,
                         parseErrorMessage = null,
+                        latestRawModelOutput = null,
                         latestEvaluationResult = null,
                         evaluationErrorMessage = null,
                         errorMessage = error.message ?: "Failed to generate response.",
@@ -271,6 +279,7 @@ class CustomAppChatViewModel(
                 contextLengthUsed = null,
                 parsedPrediction = null,
                 parseErrorMessage = null,
+                latestRawModelOutput = null,
                 goldTsvLoadError = null,
                 evaluationHistory = emptyList(),
                 latestEvaluationResult = null,
@@ -319,6 +328,7 @@ class CustomAppChatViewModel(
                         isBatchRunning = true,
                         isGenerating = false,
                         batchConversationMessages = emptyList(),
+                        latestRawModelOutput = null,
                         batchTotalCount = selectedRows.size,
                         batchCompletedCount = 0,
                         batchFailedCount = 0,
@@ -395,6 +405,7 @@ class CustomAppChatViewModel(
                                     currentUiState.batchConversationMessages + batchOutputMessage,
                                 parsedPrediction = parseResult.getOrNull(),
                                 parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                                latestRawModelOutput = response.response,
                                 evaluationHistory = updatedHistory,
                                 latestEvaluationResult = evaluationSummary.latestResult,
                                 macroAccuracy = evaluationSummary.macroAccuracy,
@@ -739,4 +750,26 @@ class CustomAppChatViewModel(
         withContext(Dispatchers.Default) {
             smolLMManager.resetLoadedState(systemPrompt)
         }
+}
+
+private fun String.toEscapedDebugString(): String {
+    val builder = StringBuilder(length)
+    for (char in this) {
+        when (char) {
+            '\n' -> builder.append("\\n")
+            '\r' -> builder.append("\\r")
+            '\t' -> builder.append("\\t")
+            '\b' -> builder.append("\\b")
+            '\u000C' -> builder.append("\\f")
+            '\\' -> builder.append("\\\\")
+            else -> {
+                if (char.isISOControl()) {
+                    builder.append("\\u").append(char.code.toString(16).padStart(4, '0'))
+                } else {
+                    builder.append(char)
+                }
+            }
+        }
+    }
+    return builder.toString()
 }
