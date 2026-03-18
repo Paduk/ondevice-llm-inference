@@ -7,11 +7,11 @@
 
 class LLMInference {
     // llama.cpp-specific types
-    llama_context* _ctx;
-    llama_model*   _model;
-    llama_sampler* _sampler;
-    llama_token    _currToken;
-    llama_batch*   _batch;
+    llama_context* _ctx = nullptr;
+    llama_model*   _model = nullptr;
+    llama_sampler* _sampler = nullptr;
+    llama_token    _currToken = 0;
+    llama_batch*   _batch = nullptr;
 
     llama_batch g_batch;
 
@@ -39,6 +39,7 @@ class LLMInference {
     int _nCtxUsed = 0;
 
     bool _isValidUtf8(const char* response);
+    void clearMessages();
 
   public:
     void loadModel(const char* modelPath, float minP, float temperature, bool storeChats, long contextSize,
@@ -51,6 +52,8 @@ class LLMInference {
     float getResponseGenerationTime() const;
 
     int getContextSizeUsed() const;
+
+    void resetState();
 
     void startCompletion(const char* query);
 

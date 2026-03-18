@@ -34,9 +34,10 @@ private const val PREF_SETUP_TSV_PATH = "custom_app.setup.tsv_path"
 private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
 
 const val PROMPT_PRESET_CUSTOM = "custom"
-const val PROMPT_PRESET_MODEL_A = "model_a"
-const val PROMPT_PRESET_MODEL_B = "model_b"
-const val PROMPT_PRESET_MODEL_C = "model_c"
+const val PROMPT_PRESET_REWRITE_QWEN3 = "rewrite_qwen3"
+const val PROMPT_PRESET_BASE_QWEN3 = "base_qwen3"
+const val PROMPT_PRESET_REWRITE_PHI = "rewrite_phi"
+const val PROMPT_PRESET_BASE_PHI = "base_phi"
 
 private val modelAPromptTemplate =
     """
@@ -51,6 +52,14 @@ private val modelAPromptTemplate =
     </think>
     """.trimIndent()
 
+private const val baseQwen3PromptTemplate = "You are a helpful assistant.\nAnswer in JSON when the task requires structured output."
+
+private const val rewritePhiPromptTemplate =
+    "You are a rewrite-focused assistant.\nUse the provided context carefully and answer in JSON."
+
+private const val basePhiPromptTemplate =
+    "You are an accuracy-focused assistant.\nReason conservatively and answer in JSON."
+
 data class PromptPresetOption(
     val key: String,
     val label: String,
@@ -60,24 +69,29 @@ data class PromptPresetOption(
 val promptPresetOptions =
     listOf(
         PromptPresetOption(
-            key = PROMPT_PRESET_CUSTOM,
-            label = "Custom",
-            template = null,
-        ),
-        PromptPresetOption(
-            key = PROMPT_PRESET_MODEL_A,
-            label = "Model A",
+            key = PROMPT_PRESET_REWRITE_QWEN3,
+            label = "Rewrite-Qwen3",
             template = modelAPromptTemplate,
         ),
         PromptPresetOption(
-            key = PROMPT_PRESET_MODEL_B,
-            label = "Model B",
-            template = "You are Model B.\nReason conservatively and answer in JSON.",
+            key = PROMPT_PRESET_BASE_QWEN3,
+            label = "Base-Qwen3",
+            template = baseQwen3PromptTemplate,
         ),
         PromptPresetOption(
-            key = PROMPT_PRESET_MODEL_C,
-            label = "Model C",
-            template = "You are Model C.\nFocus on accuracy and answer in JSON.",
+            key = PROMPT_PRESET_REWRITE_PHI,
+            label = "Rewrite-Phi",
+            template = rewritePhiPromptTemplate,
+        ),
+        PromptPresetOption(
+            key = PROMPT_PRESET_BASE_PHI,
+            label = "Base-Phi",
+            template = basePhiPromptTemplate,
+        ),
+        PromptPresetOption(
+            key = PROMPT_PRESET_CUSTOM,
+            label = "Custom",
+            template = "",
         ),
     )
 
@@ -159,7 +173,7 @@ class CustomAppSetupViewModel(
         val preset = promptPresetOptions.firstOrNull { it.key == presetKey } ?: return
         updateAndPersist { state ->
             if (preset.key == PROMPT_PRESET_CUSTOM) {
-                state.copy(selectedPromptPresetKey = PROMPT_PRESET_CUSTOM)
+                state.copy(selectedPromptPresetKey = PROMPT_PRESET_CUSTOM, systemPrompt = "")
             } else {
                 state.copy(
                     selectedPromptPresetKey = preset.key,
@@ -318,11 +332,15 @@ class CustomAppSetupViewModel(
         sharedPrefStore.put(PREF_SETUP_TSV_NAME, state.selectedTsvName)
     }
 
-    private fun loadInitialState(): CustomAppSetupUiState =
-        CustomAppSetupUiState(
+    private fun loadInitialState(): CustomAppSetupUiState {
+        val storedPresetKey =
+            sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_CUSTOM)
+        val normalizedPresetKey =
+            if (promptPresetOptions.any { it.key == storedPresetKey }) storedPresetKey
+            else PROMPT_PRESET_CUSTOM
+        return CustomAppSetupUiState(
             selectedModelId = sharedPrefStore.get(PREF_SETUP_MODEL_ID, -1L),
-            selectedPromptPresetKey =
-                sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_CUSTOM),
+            selectedPromptPresetKey = normalizedPresetKey,
             systemPrompt = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "You are a helpful assistant."),
             temperatureText = sharedPrefStore.get(PREF_SETUP_TEMPERATURE, "0.8"),
             minPText = sharedPrefStore.get(PREF_SETUP_MIN_P, "0.1"),
@@ -333,6 +351,7 @@ class CustomAppSetupViewModel(
             selectedTsvPath = sharedPrefStore.get(PREF_SETUP_TSV_PATH, ""),
             selectedTsvName = sharedPrefStore.get(PREF_SETUP_TSV_NAME, ""),
         )
+    }
 
     private fun checkGgufFile(uri: Uri): Boolean {
         context.contentResolver.openInputStream(uri)?.use { inputStream ->

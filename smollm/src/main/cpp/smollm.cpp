@@ -51,6 +51,16 @@ Java_io_shubham0204_smollm_SmolLM_getContextSizeUsed(JNIEnv* env, jobject thiz, 
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_io_shubham0204_smollm_SmolLM_resetState(JNIEnv* env, jobject thiz, jlong modelPtr) {
+    auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
+    try {
+        llmInference->resetState();
+    } catch (std::exception& error) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), error.what());
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_io_shubham0204_smollm_SmolLM_close(JNIEnv* env, jobject thiz, jlong modelPtr) {
     auto* llmInference = reinterpret_cast<LLMInference*>(modelPtr);
     delete llmInference;

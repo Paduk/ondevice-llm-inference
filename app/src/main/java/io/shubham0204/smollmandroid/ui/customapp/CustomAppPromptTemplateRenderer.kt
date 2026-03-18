@@ -1,7 +1,5 @@
 package io.shubham0204.smollmandroid.ui.customapp
 
-import kotlinx.serialization.json.JsonObject
-
 data class PromptRenderResult(
     val prompt: String,
     val missingPlans: List<String> = emptyList(),
@@ -18,14 +16,14 @@ object CustomAppPromptTemplateRenderer {
     fun render(
         template: String,
         record: GoldTsvRecord,
-        apiMetadataByPlan: Map<String, JsonObject> = emptyMap(),
+        apiMetadataByPlan: Map<String, List<String>> = emptyMap(),
     ): PromptRenderResult {
         val parsedCandidates = parseCandidates(record.candidates)
         val uniqueCandidates = parsedCandidates.distinct()
         val missingPlans = uniqueCandidates.filterNot { apiMetadataByPlan.containsKey(it) }
         val renderedTools =
             uniqueCandidates.mapNotNull { plan ->
-                apiMetadataByPlan[plan]?.let { metadata -> "$plan: $metadata" }
+                apiMetadataByPlan[plan]?.let { parameters -> "$plan: $parameters" }
             }
         val toolsString = renderedTools.joinToString(separator = "\n")
 

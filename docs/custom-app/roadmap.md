@@ -3,8 +3,8 @@
 ## Status
 
 - Overall status: `in_progress`
-- Current phase: `Phase 3`
-- Current focus: `Physical-device validation`
+- Current phase: `Phase 4`
+- Current focus: `Task 28 model parity audit`
 
 ## MVP Acceptance Criteria
 
@@ -21,7 +21,7 @@
 
 ## Phase 2 Acceptance Criteria
 
-- user can choose one of three predefined prompt presets from setup
+- user can choose one of four predefined prompt presets plus `Custom` from setup
 - selecting a preset replaces the current system prompt text
 - batch test can render prompts using TSV `query`, `rewrited_query`, and `conversation_history`
 - batch test can run first 1, random 10, or all TSV rows
@@ -29,11 +29,32 @@
 
 ## Phase 3 Acceptance Criteria
 
-- the app can load `api_v3.0.1.jsonl` from bundled assets
+- the app can load bundled tool metadata from app assets
 - the prompt renderer supports `{tools}`
-- `{tools}` is built from TSV `candidates` and bundled API metadata
+- `{tools}` is built from TSV `candidates` and bundled simple API metadata
 - batch prompts can include both TSV placeholders and `{tools}`
 - the UI can show tools-rendering warnings when metadata is missing
+
+## Phase 3 Correction Acceptance Criteria
+
+- `{tools}` uses `simple_api.json` as the only source of truth
+- the simple asset loader exposes `plan -> parameter_list`
+- preview and batch rendering use the same simple tools data
+- rendered tools lines match the Python SFT path format
+
+## Phase 4 Acceptance Criteria
+
+- batch run loads the model once per run
+- each batch row executes with a fresh single-turn context
+- row-to-row context leakage is prevented without reload-per-row
+- interactive chat is restored after batch completion or stop
+
+## Phase 5 Acceptance Criteria
+
+- Python and APK parity checks are documented
+- Android sampling defaults can be aligned with Python for controlled comparison
+- Android has a documented or implemented raw-prompt parity path
+- remaining JSON and length-control gaps are clearly reduced or documented
 
 ## Execution Order
 
@@ -58,6 +79,16 @@
 19. [task-19-tools-placeholder-renderer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-19-tools-placeholder-renderer.md)
 20. [task-20-tools-batch-wiring.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-20-tools-batch-wiring.md)
 21. [task-21-tools-debug-summary.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-21-tools-debug-summary.md)
+22. [task-22-simple-api-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-22-simple-api-spec.md)
+23. [task-23-simple-api-asset-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-23-simple-api-asset-loader.md)
+24. [task-24-simple-tools-renderer-wiring.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-24-simple-tools-renderer-wiring.md)
+25. [task-25-batch-single-load-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-25-batch-single-load-spec.md)
+26. [task-26-native-reset-api.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-26-native-reset-api.md)
+27. [task-27-batch-runner-single-load.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-27-batch-runner-single-load.md)
+28. [task-28-model-parity-audit.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-28-model-parity-audit.md)
+29. [task-29-align-sampling-defaults.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-29-align-sampling-defaults.md)
+30. [task-30-raw-prompt-batch-path.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
+31. [task-31-json-and-length-parity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-31-json-and-length-parity.md)
 
 ## Checklist
 
@@ -89,6 +120,16 @@
 - [x] Support `{tools}` placeholder rendering
 - [x] Use `{tools}` during batch prompt generation
 - [x] Show tools rendering diagnostics
+- [x] Freeze `simple_api.json` as the only tools source
+- [x] Load `simple_api.json` from assets
+- [x] Switch preview and batch tools rendering to `simple_api.json`
+- [x] Freeze single-load batch reset assumptions
+- [x] Add native reset API without model unload
+- [x] Refactor batch runner to use single model load
+- [ ] Freeze Python-vs-APK parity checklist
+- [ ] Align Android sampling defaults for parity tests
+- [ ] Add or define raw-prompt parity path
+- [ ] Reduce JSON and generation-length parity gaps
 
 ## Agent Update Rules
 
@@ -129,3 +170,13 @@ When an agent completes a task, update:
 - 2026-03-16: Task 19 completed. The prompt renderer now supports `{tools}` by parsing Python-style TSV candidate lists, deduplicating repeated plans, rendering available plan metadata line-by-line, and returning missing-plan warnings alongside the final prompt text.
 - 2026-03-16: Task 20 completed. Batch prompt preview and batch inference now both use bundled API metadata to render `{tools}`, and the current state keeps row-level missing-plan warnings so tooling issues can be surfaced in the UI.
 - 2026-03-16: Task 21 completed. The UI now shows tools-rendering diagnostics including parsed candidate count, rendered tool count, render status, missing-plan count, and the missing plan names for the latest preview or batch row.
+- 2026-03-17: Phase 3 correction planning added. `{tools}` will be corrected to use `simple_api.json` consistently so Android prompt construction matches the Python SFT inference path rather than the previous detailed JSONL metadata path.
+- 2026-03-17: Prompt preset UI was revised to a 2-column grid with `Rewrite-Qwen3`, `Base-Qwen3`, `Rewrite-Phi`, `Base-Phi`, and `Custom`. `Custom` now clears the system prompt to an empty string when selected, and old stored preset keys fall back safely to `Custom`.
+- 2026-03-17: Task 22 completed. The docs now freeze `simple_api.json` as the only `{tools}` source, define rendering as `{plan}: {parameter_list}`, and move the correction flow focus to the simple asset loader.
+- 2026-03-17: Task 23 completed. `simple_api.json` is now bundled under app assets, and the asset store now loads and caches a `plan -> parameter_list` map while keeping temporary compatibility methods until Task 24 rewires preview and batch rendering.
+- 2026-03-17: Task 24 completed. Prompt preview and batch inference now both use `simple_api.json` through the simple asset loader, and `{tools}` is rendered as `{plan}: {parameter_list}` with missing-plan diagnostics preserved.
+- 2026-03-17: Phase 4 planning added. Batch inference will be optimized from reload-per-row to one model load per batch run plus row-level context resets, with native reset support added before the runner is refactored.
+- 2026-03-17: Task 25 completed. The batch optimization design is now frozen around one model load per batch run, row-level conversation and KV/cache resets, system-prompt re-priming, and interactive chat restoration after batch completion.
+- 2026-03-17: Task 26 completed. A native reset pathway now clears in-memory messages, prompt buffers, partial-response buffers, and llama KV/cache state without unloading model weights, and the Kotlin `SmolLM` wrapper exposes that reset API directly.
+- 2026-03-17: Task 27 completed. The batch runner now loads the batch model once, resets loaded state between rows instead of unloading and reloading, and relies on the batch job cleanup path to restore the interactive chat session after completion or cancellation.
+- 2026-03-18: Phase 5 planning added. Python-vs-APK quality gaps are now split into parity tasks covering model identity, sampling defaults, raw-prompt execution, and JSON or generation-length alignment.

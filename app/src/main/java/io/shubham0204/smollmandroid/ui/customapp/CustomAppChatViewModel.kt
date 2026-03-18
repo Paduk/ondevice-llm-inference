@@ -326,8 +326,9 @@ class CustomAppChatViewModel(
                 var tempChat: Chat? = null
                 try {
                     val promptTemplate = originalChat.systemPrompt
-                    val apiMetadataByPlan = apiMetadataAssetStore.getAll()
+                    val apiMetadataByPlan = apiMetadataAssetStore.getAllSimple()
                     tempChat = createBatchChat(originalChat)
+                    loadModelSuspend(tempChat, selectedModel.path)
 
                     selectedRows.forEachIndexed { index, record ->
                         val renderResult =
@@ -349,8 +350,7 @@ class CustomAppChatViewModel(
                         }
 
                         appDB.deleteMessages(tempChat.id)
-                        smolLMManager.unload()
-                        loadModelSuspend(tempChat, selectedModel.path)
+                        resetBatchStateSuspend(tempChat.systemPrompt)
                         val response = getResponseSuspend(renderResult.prompt)
                         val parseResult = runCatching { CustomAppJsonParser.parse(response.response) }
                         val currentUiState = _uiState.value
@@ -429,7 +429,6 @@ class CustomAppChatViewModel(
                 statusMessage = "Batch run stopped.",
             )
         }
-        _uiState.value.chat?.let(::loadModel)
     }
 
     override fun onCleared() {
@@ -521,7 +520,15 @@ class CustomAppChatViewModel(
                 val goldRecords = goldTsvLoadResult.getOrDefault(emptyList())
                 val systemPrompt = chat.systemPrompt
                 val apiMetadataByPlan =
-                    runCatching { apiMetadataAssetStore.getAll() }.getOrDefault(emptyMap())
+                    runCatching { apiMetadataAssetStore.getAllSimple() }.getOrDefault(emptyMap())
+                val previewResult =
+                    goldRecords.firstOrNull()?.let { record ->
+                        CustomAppPromptTemplateRenderer.render(
+                            template = systemPrompt,
+                            record = record,
+                            apiMetadataByPlan = apiMetadataByPlan,
+                        )
+                    }
                 _uiState.update {
                     it.copy(
                         chat = chat,
@@ -531,38 +538,10 @@ class CustomAppChatViewModel(
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
                         selectedBatchRunMode =
                             sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1),
-                        renderedPromptPreview =
-                            goldRecords.firstOrNull()?.let { record ->
-                                CustomAppPromptTemplateRenderer.render(
-                                    template = systemPrompt,
-                                    record = record,
-                                    apiMetadataByPlan = apiMetadataByPlan,
-                                ).prompt
-                            },
-                        renderedToolsMissingPlans =
-                            goldRecords.firstOrNull()?.let { record ->
-                                CustomAppPromptTemplateRenderer.render(
-                                    template = systemPrompt,
-                                    record = record,
-                                    apiMetadataByPlan = apiMetadataByPlan,
-                                ).missingPlans
-                            } ?: emptyList(),
-                        renderedToolsCandidateCount =
-                            goldRecords.firstOrNull()?.let { record ->
-                                CustomAppPromptTemplateRenderer.render(
-                                    template = systemPrompt,
-                                    record = record,
-                                    apiMetadataByPlan = apiMetadataByPlan,
-                                ).parsedCandidateCount
-                            } ?: 0,
-                        renderedToolsCount =
-                            goldRecords.firstOrNull()?.let { record ->
-                                CustomAppPromptTemplateRenderer.render(
-                                    template = systemPrompt,
-                                    record = record,
-                                    apiMetadataByPlan = apiMetadataByPlan,
-                                ).renderedToolCount
-                            } ?: 0,
+                        renderedPromptPreview = previewResult?.prompt,
+                        renderedToolsMissingPlans = previewResult?.missingPlans ?: emptyList(),
+                        renderedToolsCandidateCount = previewResult?.parsedCandidateCount ?: 0,
+                        renderedToolsCount = previewResult?.renderedToolCount ?: 0,
                         statusMessage = "Loading model...",
                         errorMessage = null,
                     )
@@ -711,5 +690,10 @@ class CustomAppChatViewModel(
                     }
                 },
             )
+        }
+
+    private suspend fun resetBatchStateSuspend(systemPrompt: String) =
+        withContext(Dispatchers.Default) {
+            smolLMManager.resetLoadedState(systemPrompt)
         }
 }

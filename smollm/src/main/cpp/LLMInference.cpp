@@ -71,6 +71,15 @@ LLMInference::addChatMessage(const char *message, const char *role) {
     _messages.push_back({strdup(role), strdup(message)});
 }
 
+void
+LLMInference::clearMessages() {
+    for (llama_chat_message &message: _messages) {
+        free(const_cast<char *>(message.role));
+        free(const_cast<char *>(message.content));
+    }
+    _messages.clear();
+}
+
 float
 LLMInference::getResponseGenerationTime() const {
     return (float) _responseNumTokens / (_responseGenerationTime / 1e6);
@@ -79,6 +88,27 @@ LLMInference::getResponseGenerationTime() const {
 int
 LLMInference::getContextSizeUsed() const {
     return _nCtxUsed;
+}
+
+void
+LLMInference::resetState() {
+    clearMessages();
+    _response.clear();
+    _cacheResponseTokens.clear();
+    _promptTokens.clear();
+    _formattedMessages.clear();
+    _responseGenerationTime = 0;
+    _responseNumTokens = 0;
+    _nCtxUsed = 0;
+
+    if (_batch != nullptr) {
+        delete _batch;
+        _batch = nullptr;
+    }
+
+    if (_ctx != nullptr) {
+        llama_memory_clear(llama_get_memory(_ctx), false);
+    }
 }
 
 void
@@ -204,16 +234,17 @@ LLMInference::stopCompletion() {
 }
 
 LLMInference::~LLMInference() {
-    // free memory held by the message text in messages
-    // (as we had used strdup() to create a malloc'ed copy)
-    for (llama_chat_message &message: _messages) {
-        free(const_cast<char *>(message.role));
-        free(const_cast<char *>(message.content));
+    clearMessages();
+    if (_ctx != nullptr) {
+        llama_free(_ctx);
     }
-    llama_free(_ctx);
-    llama_model_free(_model);
+    if (_model != nullptr) {
+        llama_model_free(_model);
+    }
     delete _batch;
-    llama_sampler_free(_sampler);
+    if (_sampler != nullptr) {
+        llama_sampler_free(_sampler);
+    }
 }
 
 std::string

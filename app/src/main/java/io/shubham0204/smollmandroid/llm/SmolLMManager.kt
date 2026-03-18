@@ -138,6 +138,18 @@ class SmolLMManager(private val appDB: AppDB) {
         }
     }
 
+    fun resetLoadedState(systemPrompt: String = "") {
+        stateLock.withLock {
+            if (!isInstanceLoaded.get()) {
+                throw IllegalStateException("Model not loaded")
+            }
+            instance.resetState()
+            if (systemPrompt.isNotEmpty()) {
+                instance.addSystemPrompt(systemPrompt)
+            }
+        }
+    }
+
     fun getResponse(
         query: String,
         responseTransform: (String) -> String,

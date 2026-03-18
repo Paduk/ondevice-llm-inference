@@ -32,6 +32,18 @@ Define the supported batch execution modes and how rows are selected from the up
 - each rendered prompt is executed independently
 - evaluation is performed per row using the existing JSON parser and TSV comparison rule
 
+## Current Implementation Note
+
+- the current batch runner reloads the model for every row to guarantee isolation
+- this is correct but slower than needed on-device
+
+## Planned Optimization Direction
+
+- move to one model load per batch run
+- reset conversation and KV/cache state between rows
+- keep each row as a fresh single-turn inference
+- restore the interactive chat session after batch completion
+
 ## Batch Summary Expectations
 
 - total selected rows

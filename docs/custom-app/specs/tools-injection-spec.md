@@ -2,12 +2,12 @@
 
 ## Goal
 
-Define how `{tools}` is built from TSV `candidates` and bundled API metadata.
+Define how `{tools}` is built from TSV `candidates` and bundled simple API metadata.
 
 ## Input Sources
 
 - TSV column: `candidates`
-- app asset: `api_v3.0.1.jsonl`
+- app asset: `simple_api.json`
 
 ## Candidate Parsing
 
@@ -21,20 +21,16 @@ Define how `{tools}` is built from TSV `candidates` and bundled API metadata.
 
 ## API Metadata Lookup
 
-- API metadata is loaded into a `plan -> api_data` map
-- each row in `api_v3.0.1.jsonl` must contain `plan`
-- remove non-essential fields for prompt injection:
-  - `examples`
-  - `returns`
-  - `next_turn_plans`
-- keep the remaining object structure as-is
-- stringify the remaining object using a stable JSON-like representation for prompt injection
+- API metadata is loaded into a `plan -> parameter_list` map
+- `simple_api.json` is a single JSON object keyed by plan name
+- each value is an ordered list of parameter names
+- no additional normalization is required for MVP
 
 ## Prompt Rendering Format
 
 For each candidate tool:
 
-- render one line as `{plan}: {api_data}`
+- render one line as `{plan}: {parameter_list}`
 - join lines with `\n`
 - no bullet markers or numbering
 - include a trailing newline after each rendered tool line only if convenient for implementation
@@ -53,7 +49,7 @@ For each candidate tool:
 - empty candidates list -> render `{tools}` as an empty string for MVP
 - if some candidate plans are found and others are missing, render only the found plans and keep warnings for the missing ones
 - if all candidate plans are missing, render `{tools}` as an empty string and mark a warning, not a hard failure
-- malformed asset JSON line is an asset-loading failure, not a row-level warning
+- malformed asset JSON is an asset-loading failure, not a row-level warning
 
 ## Persistence And Scope
 

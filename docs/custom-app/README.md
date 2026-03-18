@@ -89,6 +89,36 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-21-tools-debug-summary.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-21-tools-debug-summary.md)
   Show tools rendering diagnostics such as selected candidate count and missing-plan warnings.
 
+- [task-22-simple-api-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-22-simple-api-spec.md)
+  Correct the `{tools}` source-of-truth to match the Python SFT path using `simple_api.json`.
+
+- [task-23-simple-api-asset-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-23-simple-api-asset-loader.md)
+  Load bundled `simple_api.json` into a cached plan-to-parameter-list map.
+
+- [task-24-simple-tools-renderer-wiring.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-24-simple-tools-renderer-wiring.md)
+  Rewire preview and batch prompt rendering so `{tools}` always uses `simple_api.json`.
+
+- [task-25-batch-single-load-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-25-batch-single-load-spec.md)
+  Freeze the optimized batch design so the model loads once and rows reset context without reload.
+
+- [task-26-native-reset-api.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-26-native-reset-api.md)
+  Add a reset path in native and Kotlin layers to clear conversation state without unloading the model.
+
+- [task-27-batch-runner-single-load.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-27-batch-runner-single-load.md)
+  Refactor the batch runner to use one model load and row-level resets.
+
+- [task-28-model-parity-audit.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-28-model-parity-audit.md)
+  Freeze the minimum checklist for meaningful Python-vs-APK quality comparison.
+
+- [task-29-align-sampling-defaults.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-29-align-sampling-defaults.md)
+  Align Android sampling defaults with the Python Ollama path where practical.
+
+- [task-30-raw-prompt-batch-path.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
+  Add or define a raw-prompt batch path for closer parity with Python prompt execution.
+
+- [task-31-json-and-length-parity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-31-json-and-length-parity.md)
+  Reduce JSON forcing and generation-length gaps between Python and Android.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
@@ -109,11 +139,17 @@ Use this map first, then open only the task/spec files needed for the current im
 - [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
   Batch execution modes, row sampling rules, and summary expectations.
 
+- [batch-session-reset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-session-reset-spec.md)
+  Reset semantics for one-load batch execution with fresh single-turn rows.
+
 - [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
   Rules for building `{tools}` strings from TSV candidates and bundled API metadata.
 
 - [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
-  Asset packaging and loading assumptions for `api_v3.0.1.jsonl`.
+  Asset packaging and loading assumptions for `simple_api.json`.
+
+- [inference-parity-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/inference-parity-spec.md)
+  Rules for reducing quality differences between Python and APK inference paths.
 
 ## Recommended Agent Workflow
 
@@ -142,7 +178,7 @@ For a single implementation request:
 - runtime metrics
 - dataset-driven batch test
 - prompt placeholder substitution from TSV rows
-- tools placeholder substitution from bundled API metadata
+- tools placeholder substitution from bundled simple API metadata
 
 ### Out Of Scope
 

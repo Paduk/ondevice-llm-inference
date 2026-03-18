@@ -23,6 +23,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -143,12 +144,23 @@ private fun SetupPlaceholderScreen(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
-                promptPresetOptions.forEach { preset ->
-                    RadioSelectionRow(
-                        label = preset.label,
-                        selected = uiState.selectedPromptPresetKey == preset.key,
-                        onSelect = { viewModel.selectPromptPreset(preset.key) },
-                    )
+                promptPresetOptions.chunked(2).forEach { rowOptions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowOptions.forEach { preset ->
+                            PromptPresetButton(
+                                label = preset.label,
+                                selected = uiState.selectedPromptPresetKey == preset.key,
+                                onClick = { viewModel.selectPromptPreset(preset.key) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (rowOptions.size < 2) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
                 }
                 OutlinedTextField(
                     value = uiState.systemPrompt,
@@ -641,6 +653,30 @@ private fun PlaceholderContent(
         }
         Button(onClick = onPrimaryAction) {
             Text(primaryActionLabel)
+        }
+    }
+}
+
+@Composable
+private fun PromptPresetButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = modifier,
+        ) {
+            Text(label)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier,
+        ) {
+            Text(label)
         }
     }
 }
