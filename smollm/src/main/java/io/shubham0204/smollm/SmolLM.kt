@@ -272,6 +272,17 @@ class SmolLM {
         stopCompletion(nativePtr)
     }
 
+    fun getRawResponseAsFlow(prompt: String): Flow<String> = flow {
+        verifyHandle()
+        startRawCompletion(nativePtr, prompt)
+        var piece = completionLoop(nativePtr)
+        while (piece != "[EOG]") {
+            emit(piece)
+            piece = completionLoop(nativePtr)
+        }
+        stopCompletion(nativePtr)
+    }
+
     /**
      * Returns the LLM response to the given query as a String. This function is blocking and will
      * return the complete response.
@@ -347,6 +358,8 @@ class SmolLM {
     private external fun close(modelPtr: Long)
 
     private external fun startCompletion(modelPtr: Long, prompt: String)
+
+    private external fun startRawCompletion(modelPtr: Long, prompt: String)
 
     private external fun completionLoop(modelPtr: Long): String
 

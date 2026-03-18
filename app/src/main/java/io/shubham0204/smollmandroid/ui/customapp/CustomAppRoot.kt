@@ -330,13 +330,16 @@ private fun ChatEvaluatePlaceholderScreen(
             SectionCard(title = "Parse Result") {
                 val parsedPrediction = uiState.parsedPrediction
                 if (parsedPrediction != null) {
-                    MetricRow(label = "query", value = parsedPrediction.query)
-                    MetricRow(
-                        label = "rewrited_query",
-                        value = parsedPrediction.rewritedQuery,
+                    MetricRow(label = "plan", value = parsedPrediction.plan)
+                    Text(
+                        text = "arguments",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
                     )
-                    MetricRow(label = "generated", value = parsedPrediction.generated)
-                    MetricRow(label = "answer", value = parsedPrediction.answer)
+                    Text(
+                        text = parsedPrediction.argumentsAsDisplayString(),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 } else if (uiState.parseErrorMessage != null) {
                     Text(
                         text = "Parse failed: ${uiState.parseErrorMessage}",
@@ -576,7 +579,7 @@ private fun ChatEvaluatePlaceholderScreen(
             }
 
             SectionCard(title = "Conversation") {
-                if (uiState.messages.isEmpty() && uiState.partialResponse.isBlank()) {
+                if (uiState.conversationMessages.isEmpty() && uiState.partialResponse.isBlank()) {
                     Text(
                         text = "No messages yet. Send a prompt to start the session.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -586,7 +589,7 @@ private fun ChatEvaluatePlaceholderScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        uiState.messages.forEach { message ->
+                        uiState.conversationMessages.forEach { message ->
                             MessageBubble(message = message)
                         }
                         if (uiState.partialResponse.isNotBlank()) {

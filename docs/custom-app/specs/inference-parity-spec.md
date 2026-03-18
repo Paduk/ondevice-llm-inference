@@ -38,6 +38,33 @@ Reduce quality differences between the Python Ollama inference path and the Andr
 4. align generation length limit
 5. narrow JSON-forcing gap
 
+## Minimum Parity Checklist
+
+Before comparing Python and APK quality, confirm all of the following:
+
+1. same model family and checkpoint lineage
+2. same parameter size and quantization level
+3. same rendered prompt text for the compared sample
+4. same tool list source and rendered `{tools}` text
+5. same temperature
+6. same min-p or closest available equivalent
+7. same generation length cap or closest available equivalent
+8. same expectation about JSON-only output
+9. known treatment of chat template wrapping
+
+## Comparison Labels
+
+- `meaningful parity comparison`
+  - use only when the minimum parity checklist is satisfied or the remaining gaps are explicitly logged
+- `exploratory comparison`
+  - use when some checklist items are still unmatched
+
+## Current Known Gaps
+
+- Android still differs from Python on raw prompt execution unless a dedicated parity path is added
+- Android currently does not mirror Ollama `format=json` exactly
+- Android default temperature can be aligned for parity testing, but min-p and generation-length control may still differ
+
 ## Non-Goals
 
 - perfect parity across different runtimes

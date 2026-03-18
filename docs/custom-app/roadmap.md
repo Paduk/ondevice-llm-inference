@@ -3,8 +3,8 @@
 ## Status
 
 - Overall status: `in_progress`
-- Current phase: `Phase 4`
-- Current focus: `Task 28 model parity audit`
+- Current phase: `Phase 5`
+- Current focus: `Physical-device validation`
 
 ## MVP Acceptance Criteria
 
@@ -55,6 +55,9 @@
 - Android sampling defaults can be aligned with Python for controlled comparison
 - Android has a documented or implemented raw-prompt parity path
 - remaining JSON and length-control gaps are clearly reduced or documented
+- parser can tolerate both JSON-style and Python-style quoted object outputs
+- batch raw outputs remain visible until a new batch run starts
+- parser and evaluator are aligned with the real `plan + arguments` tool-call schema
 
 ## Execution Order
 
@@ -89,6 +92,11 @@
 29. [task-29-align-sampling-defaults.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-29-align-sampling-defaults.md)
 30. [task-30-raw-prompt-batch-path.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-30-raw-prompt-batch-path.md)
 31. [task-31-json-and-length-parity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-31-json-and-length-parity.md)
+32. [task-32-tolerant-json-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-32-tolerant-json-parser.md)
+33. [task-33-batch-raw-output-retention.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-33-batch-raw-output-retention.md)
+34. [task-34-tool-call-schema-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
+35. [task-35-nested-tool-call-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
+36. [task-36-structural-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-36-structural-evaluator.md)
 
 ## Checklist
 
@@ -126,10 +134,15 @@
 - [x] Freeze single-load batch reset assumptions
 - [x] Add native reset API without model unload
 - [x] Refactor batch runner to use single model load
-- [ ] Freeze Python-vs-APK parity checklist
-- [ ] Align Android sampling defaults for parity tests
-- [ ] Add or define raw-prompt parity path
+- [x] Freeze Python-vs-APK parity checklist
+- [x] Align Android sampling defaults for parity tests
+- [x] Add or define raw-prompt parity path
 - [ ] Reduce JSON and generation-length parity gaps
+- [x] Tolerate Python-style quoted object outputs in parser fallback
+- [x] Preserve raw batch outputs until a new batch run starts
+- [x] Freeze the real tool-call output schema
+- [x] Parse nested tool-call outputs
+- [x] Compare tool-call outputs structurally against TSV gold answers
 
 ## Agent Update Rules
 
@@ -180,3 +193,13 @@ When an agent completes a task, update:
 - 2026-03-17: Task 26 completed. A native reset pathway now clears in-memory messages, prompt buffers, partial-response buffers, and llama KV/cache state without unloading model weights, and the Kotlin `SmolLM` wrapper exposes that reset API directly.
 - 2026-03-17: Task 27 completed. The batch runner now loads the batch model once, resets loaded state between rows instead of unloading and reloading, and relies on the batch job cleanup path to restore the interactive chat session after completion or cancellation.
 - 2026-03-18: Phase 5 planning added. Python-vs-APK quality gaps are now split into parity tasks covering model identity, sampling defaults, raw-prompt execution, and JSON or generation-length alignment.
+- 2026-03-18: Task 28 completed. The minimum checklist for meaningful Python-vs-APK quality comparison is now frozen, covering model identity, rendered prompt parity, tools rendering parity, sampling alignment, generation-length alignment, JSON-only expectations, and chat-template handling.
+- 2026-03-18: Task 29 completed. The custom app default temperature is now aligned to `0.0` for parity testing, while the remaining min-p and generation-length gaps are explicitly documented for later follow-up.
+- 2026-03-18: Task 30 completed. A raw-prompt execution path is now available in the native, Kotlin, and manager layers, and the batch runner uses that path so rendered prompts can be tested without extra chat-template wrapping.
+- 2026-03-18: Parser and batch-retention follow-up planning added. The next corrections split tolerant single-quote parsing and raw batch-output retention into Tasks 32 and 33 so usability gaps can be fixed without mixing parser and UI state changes.
+- 2026-03-18: Task 32 completed. The model-output parser still prefers strict JSON first, but now falls back to a tolerant quoted-object parser so Python-style single-quote outputs can be accepted when they still satisfy the required normalized schema.
+- 2026-03-18: Task 33 completed. Batch raw outputs are now retained in the visible conversation state independently from parse or evaluation success, and the retained batch outputs are cleared only when a new batch run starts or the whole conversation is reset.
+- 2026-03-18: Tool-call schema correction planning added. The next follow-up replaces the outdated flat prediction assumption with the actual `plan + arguments` schema from TSV `answer`, then updates parsing and evaluation to work on nested structured tool-call outputs.
+- 2026-03-18: Task 34 completed. The docs now freeze the real tool-calling output schema around top-level `plan` plus nested `arguments`, and evaluation is explicitly redirected from legacy flat-string comparison toward structural normalization and comparison.
+- 2026-03-18: Task 35 completed. The app parser now reads nested tool-call outputs from both strict JSON and Python-style quoted objects, and the parse-result UI now reflects top-level `plan` plus pretty-printed nested `arguments` instead of the outdated flat prediction fields.
+- 2026-03-18: Task 36 completed. The evaluator now parses TSV `answer` values as structured tool calls, canonicalizes model output and gold output recursively before comparison, and scores correctness structurally instead of relying on raw string equality.

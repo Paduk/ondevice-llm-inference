@@ -119,6 +119,21 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-31-json-and-length-parity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-31-json-and-length-parity.md)
   Reduce JSON forcing and generation-length gaps between Python and Android.
 
+- [task-32-tolerant-json-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-32-tolerant-json-parser.md)
+  Relax model-output parsing so both JSON quotes and Python-style single-quote dict strings can be accepted.
+
+- [task-33-batch-raw-output-retention.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-33-batch-raw-output-retention.md)
+  Keep raw batch outputs visible in conversation until the next batch run starts.
+
+- [task-34-tool-call-schema-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-34-tool-call-schema-spec.md)
+  Freeze the real `plan + arguments` output shape used by the current SFT tool-calling task.
+
+- [task-35-nested-tool-call-parser.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-35-nested-tool-call-parser.md)
+  Replace the old flat parser with a nested tool-call parser for JSON-style and Python-style outputs.
+
+- [task-36-structural-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-36-structural-evaluator.md)
+  Compare model output and TSV gold answers structurally after canonical normalization.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
@@ -150,6 +165,12 @@ Use this map first, then open only the task/spec files needed for the current im
 
 - [inference-parity-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/inference-parity-spec.md)
   Rules for reducing quality differences between Python and APK inference paths.
+
+- [parser-and-batch-retention-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/parser-and-batch-retention-spec.md)
+  Rules for tolerant parser fallback and preserving raw batch outputs across parse or evaluation failures.
+
+- [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
+  The actual `plan` plus nested `arguments` schema used by the current tool-calling model outputs and TSV gold answers.
 
 ## Recommended Agent Workflow
 

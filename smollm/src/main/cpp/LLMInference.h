@@ -57,6 +57,8 @@ class LLMInference {
 
     void startCompletion(const char* query);
 
+    void startRawCompletion(const char* prompt);
+
     std::string completionLoop();
 
     void stopCompletion();

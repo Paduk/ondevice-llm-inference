@@ -11,7 +11,7 @@
 - Python:
   - `temperature = 0.0`
 - APK 기본값:
-  - `temperature = 0.8`
+  - custom app 기준 `temperature = 0.0`로 맞출 수 있음
 
 이 차이만으로도 출력 안정성과 정답률 차이가 크게 날 수 있다.
 
@@ -92,6 +92,25 @@
 4. APK에서 chat template 이중 적용이 있는지 확인
 5. JSON 강제 방식 차이 줄이기
 6. generation max token 제한 맞추기
+
+## 현재 정렬된 항목
+
+- `{tools}` source는 `simple_api.json`으로 정렬됨
+- custom app 기본 temperature는 parity 기준으로 `0.0` 방향으로 맞출 수 있음
+
+## 최소 비교 체크리스트
+
+품질 비교를 의미 있게 보려면 최소한 아래를 먼저 맞춰야 한다.
+
+1. 동일 모델 가중치인지
+2. 동일 quantization인지
+3. 동일 rendered prompt인지
+4. 동일 `{tools}` 문자열인지
+5. 동일 temperature인지
+6. 동일 min-p인지
+7. 동일 generation length 제한인지
+8. JSON-only 출력 강제 수준이 유사한지
+9. chat template wrapping 차이를 인지하고 있는지
 
 ## 현재 판단
 

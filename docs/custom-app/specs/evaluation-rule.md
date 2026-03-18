@@ -2,59 +2,70 @@
 
 ## Purpose
 
-This file defines the MVP evaluation rule for comparing JSON predictions against TSV gold labels.
+This file defines the evaluation rule for comparing current tool-calling model outputs against TSV gold labels.
 
 ## Current Status
 
-- Status: `frozen-for-mvp`
+- Status: `tool-call-schema-frozen`
 
-## MVP Rule
+## Current Rule Direction
 
-- Parse prediction output from model JSON.
-- Load gold labels from TSV.
-- Compare prediction against gold using strict equality for the MVP.
-- Compute Macro Accuracy across the label set.
+- Parse model output into a structured tool-call object.
+- Parse TSV `answer` into the same structured tool-call object shape.
+- Compare the two sides structurally after canonical normalization.
+- Compute Macro Accuracy across the gold label set represented by normalized tool-call outputs.
 
-## Frozen MVP Rule
+## Frozen Comparison Unit
 
 ### Unit Of Comparison
 
-- One inference turn produces one prediction.
+- One inference turn produces one tool-call prediction.
 - The prediction is matched to one TSV row using the tuple:
   - `query`
   - `rewrited_query`
 - The compared values are:
-  - JSON `answer`
-  - TSV `answer`
+  - parsed model tool call
+  - parsed TSV `answer` tool call
+
+### Tool-Call Shape
+
+- The required top-level keys are:
+  - `plan`
+  - `arguments`
+- `plan` must normalize to a string.
+- `arguments` must normalize to a dictionary-like object.
+- `arguments` may be empty.
+- `arguments` may contain nested dictionaries and lists.
 
 ### Match Rule
 
-- Comparison uses exact string equality.
-- Matching is case-sensitive in the MVP.
-- Whitespace is trimmed at parse/load time.
+- Comparison target is structural equality after normalization.
+- Dictionary key order must not affect correctness.
+- List order is preserved and remains significant.
+- Raw string equality is no longer the intended comparison rule for this task.
 
 ### Missing Or Invalid Cases
 
-- If JSON parsing fails, the turn is marked as `parse_error`.
-- If no TSV row matches the JSON `query` and `rewrited_query`, the turn is marked as `missing_gold`.
+- If model output parsing fails, the turn is marked as `parse_error`.
+- If no TSV row matches the current `query` and `rewrited_query`, the turn is marked as `missing_gold`.
 - If `unique_idx` appears more than once in the TSV, TSV loading fails.
-- If JSON `answer` is empty after trimming, the turn is invalid.
+- If the parsed model output is missing `plan` or `arguments`, the turn is invalid.
+- If the parsed TSV `answer` is missing `plan` or `arguments`, the gold row is invalid.
 
 ### Session Scope
 
 - Evaluation is both:
   - per-turn, for the latest prediction
-  - cumulative across the current chat session
+  - cumulative across the current chat session or batch run
 
-### Macro Accuracy Definition For MVP
+### Macro Accuracy Definition
 
-- Let each gold label define a class.
+- Let each normalized gold tool-call output define a class.
 - For the evaluated samples in the current session, compute per-class accuracy:
-  - `correct predictions for that gold answer / total evaluated samples for that gold answer`
+  - `correct predictions for that gold tool-call class / total evaluated samples for that gold tool-call class`
 - Macro Accuracy is the arithmetic mean of those per-class accuracies.
 - Only classes that appear in the evaluated session samples are included in the mean.
 
-## Notes For Later Expansion
+## Compatibility Note
 
-- More tolerant normalization rules can be added later if needed.
-- Alternative metrics such as micro accuracy, F1, or confusion matrices are out of scope for MVP.
+- The older flat schema based on `query`, `rewrited_query`, `generated`, and `answer` is not the active evaluation target for the current SFT tool-calling workflow.

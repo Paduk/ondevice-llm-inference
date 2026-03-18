@@ -218,6 +218,64 @@ class SmolLMManager(private val appDB: AppDB) {
         }
     }
 
+    fun getRawPromptResponse(
+        prompt: String,
+        responseTransform: (String) -> String,
+        onPartialResponseGenerated: (String) -> Unit,
+        onSuccess: (SmolLMResponse) -> Unit,
+        onCancelled: () -> Unit,
+        onError: (Exception) -> Unit,
+    ) {
+        stateLock.withLock {
+            if (!isInstanceLoaded.get()) {
+                onError(IllegalStateException("Model not loaded"))
+                return
+            }
+
+            responseGenerationJob?.cancel()
+
+            responseGenerationJob = CoroutineScope(Dispatchers.Default).launch {
+                try {
+                    isInferenceOn = true
+                    var response = ""
+
+                    val duration = measureTime {
+                        instance.getRawResponseAsFlow(prompt).collect { piece ->
+                            response += piece
+                            withContext(Dispatchers.Main) {
+                                onPartialResponseGenerated(response)
+                            }
+                        }
+                    }
+
+                    response = responseTransform(response)
+
+                    withContext(Dispatchers.Main) {
+                        isInferenceOn = false
+                        onSuccess(
+                            SmolLMResponse(
+                                response = response,
+                                generationSpeed = instance.getResponseGenerationSpeed(),
+                                generationTimeSecs = duration.inWholeSeconds.toInt(),
+                                contextLengthUsed = instance.getContextLengthUsed(),
+                            )
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    isInferenceOn = false
+                    withContext(Dispatchers.Main) {
+                        onCancelled()
+                    }
+                } catch (e: Exception) {
+                    isInferenceOn = false
+                    withContext(Dispatchers.Main) {
+                        onError(e)
+                    }
+                }
+            }
+        }
+    }
+
     private val BENCH_PROMPT_PROCESSING_TOKENS = 512
     private val BENCH_TOKEN_GENERATION_TOKENS = 128
     private val BENCH_SEQUENCE = 1

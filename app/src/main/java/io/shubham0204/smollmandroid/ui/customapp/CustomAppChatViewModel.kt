@@ -71,6 +71,7 @@ data class CustomAppChatUiState(
     val chat: Chat? = null,
     val selectedModel: LLMModel? = null,
     val messages: List<ChatMessage> = emptyList(),
+    val batchConversationMessages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
     val partialResponse: String = "",
     val isModelLoading: Boolean = false,
@@ -79,7 +80,7 @@ data class CustomAppChatUiState(
     val generationSpeedTokensPerSec: Float? = null,
     val generationTimeSecs: Int? = null,
     val contextLengthUsed: Int? = null,
-    val parsedPrediction: ParsedPrediction? = null,
+    val parsedPrediction: ParsedToolCall? = null,
     val parseErrorMessage: String? = null,
     val goldRecords: List<GoldTsvRecord> = emptyList(),
     val goldTsvName: String = "",
@@ -102,6 +103,9 @@ data class CustomAppChatUiState(
     val statusMessage: String? = null,
     val errorMessage: String? = null,
 ) {
+    val conversationMessages: List<ChatMessage>
+        get() = messages + batchConversationMessages.takeLast(10)
+
     val batchSuccessCount: Int
         get() = (batchCompletedCount - batchFailedCount).coerceAtLeast(0)
 
@@ -184,6 +188,7 @@ class CustomAppChatViewModel(
                         goldRecords = _uiState.value.goldRecords,
                         priorResults = _uiState.value.evaluationHistory,
                         parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                        goldRecordHint = null,
                     )
                 val updatedChat =
                     chat.copy(
@@ -257,6 +262,7 @@ class CustomAppChatViewModel(
         _uiState.update {
             it.copy(
                 messages = emptyList(),
+                batchConversationMessages = emptyList(),
                 partialResponse = "",
                 isGenerating = false,
                 isModelReady = false,
@@ -312,6 +318,7 @@ class CustomAppChatViewModel(
                     it.copy(
                         isBatchRunning = true,
                         isGenerating = false,
+                        batchConversationMessages = emptyList(),
                         batchTotalCount = selectedRows.size,
                         batchCompletedCount = 0,
                         batchFailedCount = 0,
@@ -351,7 +358,14 @@ class CustomAppChatViewModel(
 
                         appDB.deleteMessages(tempChat.id)
                         resetBatchStateSuspend(tempChat.systemPrompt)
-                        val response = getResponseSuspend(renderResult.prompt)
+                        val response = getRawResponseSuspend(renderResult.prompt)
+                        val batchOutputMessage =
+                            ChatMessage(
+                                id = -((index + 1).toLong()),
+                                chatId = originalChat.id,
+                                message = response.response,
+                                isUserMessage = false,
+                            )
                         val parseResult = runCatching { CustomAppJsonParser.parse(response.response) }
                         val currentUiState = _uiState.value
                         val evaluationSummary =
@@ -360,6 +374,7 @@ class CustomAppChatViewModel(
                                 goldRecords = currentUiState.goldRecords,
                                 priorResults = currentUiState.evaluationHistory,
                                 parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                                goldRecordHint = record,
                             )
                         val updatedHistory =
                             evaluationSummary.latestResult?.let { latest ->
@@ -376,6 +391,8 @@ class CustomAppChatViewModel(
                                 generationSpeedTokensPerSec = response.generationSpeed,
                                 generationTimeSecs = response.generationTimeSecs,
                                 contextLengthUsed = response.contextLengthUsed,
+                                batchConversationMessages =
+                                    currentUiState.batchConversationMessages + batchOutputMessage,
                                 parsedPrediction = parseResult.getOrNull(),
                                 parseErrorMessage = parseResult.exceptionOrNull()?.message,
                                 evaluationHistory = updatedHistory,
@@ -502,8 +519,8 @@ class CustomAppChatViewModel(
                         isTask = false,
                     ).copy(
                         temperature =
-                            sharedPrefStore.get(PREF_SETUP_TEMPERATURE, "0.8").toFloatOrNull()
-                                ?: 0.8f,
+                            sharedPrefStore.get(PREF_SETUP_TEMPERATURE, "0.0").toFloatOrNull()
+                                ?: 0.0f,
                         minP =
                             sharedPrefStore.get(PREF_SETUP_MIN_P, "0.1").toFloatOrNull() ?: 0.1f,
                         contextSize =
@@ -670,6 +687,32 @@ class CustomAppChatViewModel(
         suspendCancellableCoroutine { continuation ->
             smolLMManager.getResponse(
                 query = query,
+                responseTransform = { it.trim() },
+                onPartialResponseGenerated = { partial ->
+                    _uiState.update { state -> state.copy(partialResponse = partial) }
+                },
+                onSuccess = { response ->
+                    if (continuation.isActive) {
+                        continuation.resume(response)
+                    }
+                },
+                onCancelled = {
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(IllegalStateException("Batch run cancelled."))
+                    }
+                },
+                onError = { error ->
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(error)
+                    }
+                },
+            )
+        }
+
+    private suspend fun getRawResponseSuspend(prompt: String): SmolLMManager.SmolLMResponse =
+        suspendCancellableCoroutine { continuation ->
+            smolLMManager.getRawPromptResponse(
+                prompt = prompt,
                 responseTransform = { it.trim() },
                 onPartialResponseGenerated = { partial ->
                     _uiState.update { state -> state.copy(partialResponse = partial) }

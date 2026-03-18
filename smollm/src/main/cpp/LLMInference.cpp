@@ -142,6 +142,25 @@ LLMInference::startCompletion(const char *query) {
     _batch->n_tokens = _promptTokens.size();
 }
 
+void
+LLMInference::startRawCompletion(const char *prompt) {
+    _responseGenerationTime = 0;
+    _responseNumTokens = 0;
+    _response.clear();
+    _cacheResponseTokens.clear();
+
+    if (_batch != nullptr) {
+        delete _batch;
+        _batch = nullptr;
+    }
+
+    _promptTokens = common_tokenize(llama_model_get_vocab(_model), std::string(prompt), true, true);
+
+    _batch = new llama_batch();
+    _batch->token = _promptTokens.data();
+    _batch->n_tokens = _promptTokens.size();
+}
+
 // taken from:
 // https://github.com/ggerganov/llama.cpp/blob/master/examples/llama.android/llama/src/main/cpp/llama-android.cpp#L38
 bool

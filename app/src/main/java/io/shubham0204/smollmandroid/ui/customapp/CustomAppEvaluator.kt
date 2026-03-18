@@ -1,5 +1,13 @@
 package io.shubham0204.smollmandroid.ui.customapp
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+
 data class EvaluationResult(
     val uniqueIdx: String,
     val goldAnswer: String,
@@ -15,11 +23,14 @@ data class EvaluationSummary(
 )
 
 object CustomAppEvaluator {
+    private val compactJson = Json { prettyPrint = false }
+
     fun evaluate(
-        parsedPrediction: ParsedPrediction?,
+        parsedPrediction: ParsedToolCall?,
         goldRecords: List<GoldTsvRecord>,
         priorResults: List<EvaluationResult>,
         parseErrorMessage: String?,
+        goldRecordHint: GoldTsvRecord? = null,
     ): EvaluationSummary {
         if (goldRecords.isEmpty()) {
             return EvaluationSummary(
@@ -48,22 +59,33 @@ object CustomAppEvaluator {
             )
 
         val matchingGold =
-            goldRecords.firstOrNull {
-                it.query == prediction.query && it.rewritedQuery == prediction.rewritedQuery
-            }
+            goldRecordHint
                 ?: return EvaluationSummary(
                     latestResult = null,
                     macroAccuracy = computeMacroAccuracy(priorResults),
                     evaluatedCount = priorResults.size,
-                    errorMessage = "No matching gold TSV row found for query and rewrited_query.",
+                    errorMessage = "No gold record hint available for structural evaluation.",
                 )
+
+        val goldToolCall =
+            runCatching { CustomAppJsonParser.parse(matchingGold.answer) }.getOrElse { error ->
+                return EvaluationSummary(
+                    latestResult = null,
+                    macroAccuracy = computeMacroAccuracy(priorResults),
+                    evaluatedCount = priorResults.size,
+                    errorMessage = "Gold TSV answer parse error: ${error.message}",
+                )
+            }
+
+        val normalizedPrediction = canonicalizeToolCall(prediction)
+        val normalizedGold = canonicalizeToolCall(goldToolCall)
 
         val latestResult =
             EvaluationResult(
                 uniqueIdx = matchingGold.uniqueIdx,
-                goldAnswer = matchingGold.answer,
-                predictedAnswer = prediction.answer,
-                isCorrect = prediction.answer == matchingGold.answer,
+                goldAnswer = compactJson.encodeToString(JsonObject.serializer(), normalizedGold),
+                predictedAnswer = compactJson.encodeToString(JsonObject.serializer(), normalizedPrediction),
+                isCorrect = normalizedPrediction == normalizedGold,
             )
 
         val updatedResults =
@@ -88,4 +110,24 @@ object CustomAppEvaluator {
             }
         return perClassAccuracies.average().toFloat()
     }
+
+    private fun canonicalizeToolCall(toolCall: ParsedToolCall): JsonObject =
+        buildJsonObject {
+            put("arguments", canonicalizeElement(toolCall.arguments))
+            put("plan", JsonPrimitive(toolCall.plan))
+        }
+
+    private fun canonicalizeElement(element: JsonElement): JsonElement =
+        when (element) {
+            is JsonObject -> {
+                JsonObject(
+                    element.entries
+                        .sortedBy { it.key }
+                        .associate { (key, value) -> key to canonicalizeElement(value) },
+                )
+            }
+            is JsonArray -> JsonArray(element.map(::canonicalizeElement))
+            is JsonPrimitive -> element
+            JsonNull -> JsonNull
+        }
 }
