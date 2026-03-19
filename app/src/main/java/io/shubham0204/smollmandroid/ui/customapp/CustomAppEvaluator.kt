@@ -12,6 +12,8 @@ data class EvaluationResult(
     val uniqueIdx: String,
     val goldAnswer: String,
     val predictedAnswer: String,
+    val isPlanCorrect: Boolean,
+    val isArgumentsCorrect: Boolean,
     val isCorrect: Boolean,
 )
 
@@ -79,12 +81,17 @@ object CustomAppEvaluator {
 
         val normalizedPrediction = canonicalizeToolCall(prediction)
         val normalizedGold = canonicalizeToolCall(goldToolCall)
+        val isPlanCorrect = prediction.plan == goldToolCall.plan
+        val isArgumentsCorrect =
+            canonicalizeElement(prediction.arguments) == canonicalizeElement(goldToolCall.arguments)
 
         val latestResult =
             EvaluationResult(
                 uniqueIdx = matchingGold.uniqueIdx,
                 goldAnswer = compactJson.encodeToString(JsonObject.serializer(), normalizedGold),
                 predictedAnswer = compactJson.encodeToString(JsonObject.serializer(), normalizedPrediction),
+                isPlanCorrect = isPlanCorrect,
+                isArgumentsCorrect = isArgumentsCorrect,
                 isCorrect = normalizedPrediction == normalizedGold,
             )
 

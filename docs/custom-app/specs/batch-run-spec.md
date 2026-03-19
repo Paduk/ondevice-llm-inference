@@ -6,21 +6,20 @@ Define the supported batch execution modes and how rows are selected from the up
 
 ## Supported Modes
 
-- `First 1`
-- `Random 10`
+- `Top 1`
+- `Top 50`
 - `All`
 
 ## Row Selection Rules
 
-### First 1
+### Top 1
 
 - use the first valid TSV row only
 
-### Random 10
+### Top 50
 
-- sample up to 10 unique rows from the loaded TSV
-- if the TSV contains fewer than 10 rows, use all rows
-- random selection should happen once at the start of the run
+- use up to the first 50 valid TSV rows in file order
+- if the TSV contains fewer than 50 rows, use all rows
 
 ### All
 
@@ -51,6 +50,7 @@ Define the supported batch execution modes and how rows are selected from the up
 - failed rows
 - latest processed row id if available
 - cumulative Macro Accuracy
+- periodic persistence progress if result-export is enabled
 
 ## MVP UI Assumption
 

@@ -3,7 +3,7 @@
 ## Status
 
 - Overall status: `in_progress`
-- Current phase: `Phase 5`
+- Current phase: `Phase 8`
 - Current focus: `Physical-device validation`
 
 ## MVP Acceptance Criteria
@@ -24,7 +24,7 @@
 - user can choose one of four predefined prompt presets plus `Custom` from setup
 - selecting a preset replaces the current system prompt text
 - batch test can render prompts using TSV `query`, `rewrited_query`, and `conversation_history`
-- batch test can run first 1, random 10, or all TSV rows
+- batch test can run `Top 1`, `Top 50`, or `All` TSV rows
 - batch test shows progress and cumulative evaluation summary
 
 ## Phase 3 Acceptance Criteria
@@ -59,6 +59,30 @@
 - batch raw outputs remain visible until a new batch run starts
 - parser and evaluator are aligned with the real `plan + arguments` tool-call schema
 - runtime metrics distinguish prefill and generation without overloading the main screen
+
+## Phase 6 Acceptance Criteria
+
+- RMA rewrite evaluation is split from the tool-calling screen
+- RMA presets use the Python RMA prompt templates
+- RMA prompt rendering matches the Python `preprocess_example_it(..., test_type="sft")` input shape
+- RMA evaluation compares model output against TSV `rewrited_query`
+
+## Phase 7 Acceptance Criteria
+
+- setup exposes `Toolcalling`, `RMA`, and `E2E` as the top-level test types
+- setup reveals only the relevant model or pipeline options for the selected test type
+- Toolcalling, RMA, and E2E route into separate evaluator activities or screen flows
+- E2E supports same-family pipelines only in the first version
+- E2E runs RMA first, then tool-calling rewrite, and scores only the final tool-call output
+
+## Phase 8 Acceptance Criteria
+
+- batch mode uses `Top 1`, `Top 50`, and `All`
+- long batch runs persist per-case results to TSV during execution
+- result files include correctness fields and runtime metrics for each row
+- the app flushes batch result files every 10 completed rows
+- the app can resume from an existing result TSV by skipping already-evaluated `unique_idx` rows
+- the app shows export and resume state without overcrowding the evaluator screen
 
 ## Execution Order
 
@@ -101,6 +125,19 @@
 37. [task-37-runtime-metric-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-37-runtime-metric-spec.md)
 38. [task-38-native-prefill-generation-metrics.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-38-native-prefill-generation-metrics.md)
 39. [task-39-expandable-runtime-metrics-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-39-expandable-runtime-metrics-ui.md)
+40. [task-40-rma-mode-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-40-rma-mode-spec.md)
+41. [task-41-rma-entry-and-activity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-41-rma-entry-and-activity.md)
+42. [task-42-rma-prompt-renderer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-42-rma-prompt-renderer.md)
+43. [task-43-rma-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-43-rma-evaluator.md)
+44. [task-44-test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-44-test-type-routing-spec.md)
+45. [task-45-test-type-setup-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-45-test-type-setup-ui.md)
+46. [task-46-toolcalling-rma-activity-split.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-46-toolcalling-rma-activity-split.md)
+47. [task-47-e2e-activity-and-runner.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-47-e2e-activity-and-runner.md)
+48. [task-48-e2e-final-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-48-e2e-final-evaluator.md)
+49. [task-49-batch-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-49-batch-export-spec.md)
+50. [task-50-batch-result-writer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-50-batch-result-writer.md)
+51. [task-51-batch-resume-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-51-batch-resume-loader.md)
+52. [task-52-batch-export-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-52-batch-export-ui.md)
 
 ## Checklist
 
@@ -150,6 +187,18 @@
 - [x] Freeze prefill and generation metric definitions
 - [x] Expose separate prefill and generation metrics from native inference
 - [x] Show detailed metrics behind an expandable UI
+- [ ] Freeze RMA rewrite mode as a separate activity flow
+- [x] Add a dedicated RMA evaluation activity or route
+- [x] Render RMA prompts from TSV `conversation_history` and `query`
+- [x] Evaluate RMA outputs against TSV `rewrited_query`
+- [x] Freeze top-level `Toolcalling / RMA / E2E` routing
+- [x] Add conditional setup UI for test type and model or pipeline selection
+- [x] Split Toolcalling, RMA, and E2E into separate evaluator routes
+- [x] Run same-family E2E pipelines and score only the final tool-call output
+- [x] Freeze persistent batch export and resume assumptions
+- [x] Persist per-case batch results and summary output
+- [x] Resume batch evaluation from an existing result TSV
+- [x] Show export and resume status in the UI
 
 ## Agent Update Rules
 
@@ -214,3 +263,19 @@ When an agent completes a task, update:
 - 2026-03-18: Task 37 completed. Runtime metrics are now frozen around separate prefill, generation, and total-time definitions, incremental batch totals and averages, and an inline expandable UI that keeps only core metrics always visible.
 - 2026-03-18: Task 38 completed. Native inference now exposes separate prefill and generation timing, prompt token count, generated token count, and prefill or generation speeds through JNI, Kotlin, and manager response objects so the UI layer can render split runtime metrics next.
 - 2026-03-18: Task 39 completed. The custom app now keeps only core runtime metrics always visible, moves detailed per-case and batch metrics behind an inline expandable section, and updates batch totals and averages incrementally as rows complete.
+- 2026-03-19: Phase 6 planning added. RMA rewrite evaluation will be split into a dedicated activity path so it can reuse common UI and runtime pieces without being forced through the current tool-calling parser and evaluator.
+- 2026-03-19: Prompt preset defaults were aligned with the external training prompts. New setup state now defaults to `Rewrite-Qwen3`, `Base-Qwen3` and `Base-Phi` now use history-style prompts with `conversation_history` plus `query`, and `Rewrite-Phi` now follows the rewrite-style prompt path with `rewrited_query`, matching the same placeholder direction already used by `Rewrite-Qwen3`.
+- 2026-03-19: Phase 7 planning added. The app will move to a top-level `Test Type` model with separate Toolcalling, RMA, and E2E evaluator routes, and the first E2E version will use only same-family pipelines while scoring only the final tool-call output.
+- 2026-03-19: Task 44 completed. The top-level routing model is now frozen around `Toolcalling`, `RMA`, and `E2E`, setup will reveal only the relevant model or pipeline choices for the selected type, and the first E2E version is restricted to same-family pipelines with final-only scoring.
+- 2026-03-19: Task 45 completed. The setup screen now asks for `Test Type` first, shows only the relevant Toolcalling, RMA, or E2E model or pipeline options, and keeps E2E-specific prompt editing hidden until its dedicated route is implemented in the next task.
+- 2026-03-19: Task 46 completed. Toolcalling and RMA now enter different evaluator routes from setup, and RMA has its own placeholder screen so it no longer reuses the tool-calling evaluator route while its task-specific renderer and evaluator remain pending.
+- 2026-03-19: Task 42 completed. The RMA route now renders preview prompts using the Python `preprocess_example_it(..., test_type="sft")` input shape by building a JSON `{data}` payload from TSV `conversation_history` and `query`, and the first-row preview is shown directly in the dedicated RMA screen.
+- 2026-03-19: Task 43 completed. The dedicated RMA route now runs batch inference against TSV rows, compares raw rewrite outputs directly against TSV `rewrited_query` with exact-match scoring, and shows its own rewrite-focused evaluation summary without depending on the tool-calling parser or evaluator.
+- 2026-03-19: Task 47 completed. The app now has a dedicated E2E evaluator route, supports same-family `Qwen3` and `Phi` pipelines with separate RMA and tool-calling model selection inside that flow, and the batch runner executes RMA first then tool-calling rewrite while preserving the intermediate rewrite for debugging.
+- 2026-03-19: Task 48 completed. The E2E flow now ignores intermediate rewrite quality for scoring, structurally compares only the final tool-call output against TSV `answer`, and shows a dedicated final-evaluation summary with latest correctness and Macro Accuracy in the E2E route.
+- 2026-03-19: Phase 8 planning added. Long-running batch evaluation will move to persistent TSV export with `Top 1 / Top 50 / All` modes, periodic flush every 10 completed rows, per-case runtime metrics, and `unique_idx`-based resume support after interruption.
+- 2026-03-19: Task 49 completed. Persistent batch-export assumptions are now frozen around `Top 1 / Top 50 / All`, per-case TSV plus summary output, flush every 10 completed rows, `unique_idx`-based resume, and persisted throughput metrics including prefill, generation, and overall token-per-second fields.
+- 2026-03-19: Task 50 completed. Tool-calling batch runs now create a per-case result TSV plus a summary JSON file under app storage, persist generated outputs and correctness flags with runtime metrics, and flush the files every 10 completed rows as well as on batch completion or failure.
+- 2026-03-19: Task 51 completed. Tool-calling batch runs now auto-detect the latest matching result TSV by source TSV name, batch mode, and prompt hash, preload prior rows by `unique_idx`, skip already-evaluated rows, restore aggregate metrics from saved results, and continue writing into the same result files as a resumed run.
+- 2026-03-19: Task 52 completed. The tool-calling batch UI now uses `Top 1 / Top 50 / All`, shows whether a run is fresh or resumed, exposes skipped-row count for resumed runs, and displays the current result file name plus the last flush count without dumping export internals into the main screen.
+- 2026-03-19: Phase 8 follow-up applied. Tool-calling result files can now be shared directly from the batch UI, and the export naming scheme was simplified to `{source_tsv}_{TestType}_{model_name}_results.tsv` plus `{source_tsv}_{TestType}_{model_name}_summary.json` while keeping the files under app-internal storage.

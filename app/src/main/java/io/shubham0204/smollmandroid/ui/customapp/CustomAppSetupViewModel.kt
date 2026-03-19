@@ -22,6 +22,7 @@ import java.io.FileOutputStream
 import java.nio.file.Paths
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
+private const val PREF_SETUP_TEST_TYPE = "custom_app.setup.test_type"
 private const val PREF_SETUP_PROMPT_PRESET_KEY = "custom_app.setup.prompt_preset_key"
 private const val PREF_SETUP_SYSTEM_PROMPT = "custom_app.setup.system_prompt"
 private const val PREF_SETUP_TEMPERATURE = "custom_app.setup.temperature"
@@ -38,8 +39,16 @@ const val PROMPT_PRESET_REWRITE_QWEN3 = "rewrite_qwen3"
 const val PROMPT_PRESET_BASE_QWEN3 = "base_qwen3"
 const val PROMPT_PRESET_REWRITE_PHI = "rewrite_phi"
 const val PROMPT_PRESET_BASE_PHI = "base_phi"
+const val PROMPT_PRESET_RMA_QWEN3 = "rma_qwen3"
+const val PROMPT_PRESET_RMA_PHI = "rma_phi"
+const val PROMPT_PRESET_E2E_QWEN3_PIPELINE = "e2e_qwen3_pipeline"
+const val PROMPT_PRESET_E2E_PHI_PIPELINE = "e2e_phi_pipeline"
 
-private val modelAPromptTemplate =
+const val TEST_TYPE_TOOLCALLING = "toolcalling"
+const val TEST_TYPE_RMA = "rma"
+const val TEST_TYPE_E2E = "e2e"
+
+private val rewriteQwen3PromptTemplate =
     """
     <|im_start|>system
     Given a user query and a list of available tools, select the most appropriate tool and generate the corresponding parameters. If no tool matches the query, set the tool to 'None'. Only use parameter values that are explicitly stated or can be reasonably inferred from the query.
@@ -52,55 +61,133 @@ private val modelAPromptTemplate =
     </think>
     """.trimIndent()
 
-private const val baseQwen3PromptTemplate = "You are a helpful assistant.\nAnswer in JSON when the task requires structured output."
+private val baseQwen3PromptTemplate =
+    """
+    <|im_start|>system
+    You are a helpful assistant capable of selecting appropriate tools based on user queries and generating corresponding parameters. Use information from the conversation history when relevant. Only use parameter values that are explicitly stated or can be reasonably inferred from the query. If no tool matches the query, set the tool to 'None'.
+     <|tool|>{tools}<|/tool|><|im_end|>
+    <|im_start|>user
+    Conversation History: {conversation_history}
+    User Query: {query}<|im_end|>
+    <|im_start|>assistant
+    <think>
+
+    </think>
+
+    """.trimIndent()
 
 private const val rewritePhiPromptTemplate =
-    "You are a rewrite-focused assistant.\nUse the provided context carefully and answer in JSON."
+    "<|system|>Given a user query and a list of available tools, select the most appropriate tool and generate the corresponding parameters. If no tool matches the query, set the tool to 'None'. Only use parameter values that are explicitly stated or can be reasonably inferred from the query.\n <|tool|>{tools}<|/tool|><|end|><|user|>User Query: {rewrited_query}<|end|><|assistant|>"
 
 private const val basePhiPromptTemplate =
-    "You are an accuracy-focused assistant.\nReason conservatively and answer in JSON."
+    "<|system|>You are a helpful assistant capable of selecting appropriate tools based on user queries and generating corresponding parameters. Use information from the conversation history when relevant. Only use parameter values that are explicitly stated or can be reasonably inferred from the query. If no tool matches the query, set the tool to 'None'.\n <|tool|>{tools}<|/tool|><|end|><|user|>Conversation History: {conversation_history}\\nUser Query: {query}<|end|><|assistant|>"
 
-data class PromptPresetOption(
+private val rmaQwen3PromptTemplate =
+    """
+    <|im_start|>system
+    Rewrite the query clearly by replacing ambiguous pronouns (like "it", "that") with explicit information from the conversation history. Keep exactly the same sentence structure. Do NOT generate or include any information, words, or values outside of the provided conversation_history and query. <|im_end|>
+    <|im_start|>user
+    {data}<|im_end|><|im_start|>assistant
+    """.trimIndent()
+
+private const val rmaPhiPromptTemplate =
+    "<|system|>Rewrite the query clearly by replacing ambiguous pronouns (like \"it\", \"that\") with explicit information from the conversation history. Keep exactly the same sentence structure. Do NOT generate or include any information, words, or values outside of the provided conversation_history and query. <|end|><|user|>{data}<|end|><|assistant|>"
+
+data class TestTypeOption(
+    val key: String,
+    val label: String,
+)
+
+data class EvaluatorOption(
     val key: String,
     val label: String,
     val template: String?,
 )
 
-val promptPresetOptions =
+val testTypeOptions =
     listOf(
-        PromptPresetOption(
+        TestTypeOption(TEST_TYPE_TOOLCALLING, "Toolcalling"),
+        TestTypeOption(TEST_TYPE_RMA, "RMA"),
+        TestTypeOption(TEST_TYPE_E2E, "E2E"),
+    )
+
+val toolcallingPromptPresetOptions =
+    listOf(
+        EvaluatorOption(
             key = PROMPT_PRESET_REWRITE_QWEN3,
             label = "Rewrite-Qwen3",
-            template = modelAPromptTemplate,
+            template = rewriteQwen3PromptTemplate,
         ),
-        PromptPresetOption(
+        EvaluatorOption(
             key = PROMPT_PRESET_BASE_QWEN3,
             label = "Base-Qwen3",
             template = baseQwen3PromptTemplate,
         ),
-        PromptPresetOption(
+        EvaluatorOption(
             key = PROMPT_PRESET_REWRITE_PHI,
             label = "Rewrite-Phi",
             template = rewritePhiPromptTemplate,
         ),
-        PromptPresetOption(
+        EvaluatorOption(
             key = PROMPT_PRESET_BASE_PHI,
             label = "Base-Phi",
             template = basePhiPromptTemplate,
         ),
-        PromptPresetOption(
-            key = PROMPT_PRESET_CUSTOM,
-            label = "Custom",
-            template = "",
+    )
+
+val rmaPromptPresetOptions =
+    listOf(
+        EvaluatorOption(
+            key = PROMPT_PRESET_RMA_QWEN3,
+            label = "Qwen3-RMA",
+            template = rmaQwen3PromptTemplate,
+        ),
+        EvaluatorOption(
+            key = PROMPT_PRESET_RMA_PHI,
+            label = "Phi-RMA",
+            template = rmaPhiPromptTemplate,
         ),
     )
+
+val e2ePipelineOptions =
+    listOf(
+        EvaluatorOption(
+            key = PROMPT_PRESET_E2E_QWEN3_PIPELINE,
+            label = "Qwen3 pipeline",
+            template = null,
+        ),
+        EvaluatorOption(
+            key = PROMPT_PRESET_E2E_PHI_PIPELINE,
+            label = "Phi pipeline",
+            template = null,
+        ),
+    )
+
+private fun evaluatorOptionsForTestType(testType: String): List<EvaluatorOption> =
+    when (testType) {
+        TEST_TYPE_RMA -> rmaPromptPresetOptions
+        TEST_TYPE_E2E -> e2ePipelineOptions
+        else -> toolcallingPromptPresetOptions
+    }
+
+private fun defaultEvaluatorOptionKeyForTestType(testType: String): String =
+    when (testType) {
+        TEST_TYPE_RMA -> PROMPT_PRESET_RMA_QWEN3
+        TEST_TYPE_E2E -> PROMPT_PRESET_E2E_QWEN3_PIPELINE
+        else -> PROMPT_PRESET_REWRITE_QWEN3
+    }
+
+private fun defaultTemplateForOption(optionKey: String): String =
+    (toolcallingPromptPresetOptions + rmaPromptPresetOptions).firstOrNull { it.key == optionKey }?.template
+        ?: rewriteQwen3PromptTemplate
 
 data class CustomAppSetupUiState(
     val availableModels: List<LLMModel> = emptyList(),
     val selectedModelId: Long = -1L,
     val selectedModel: LLMModel? = null,
-    val selectedPromptPresetKey: String = PROMPT_PRESET_CUSTOM,
-    val systemPrompt: String = "You are a helpful assistant.",
+    val selectedTestType: String = TEST_TYPE_TOOLCALLING,
+    val selectedPromptPresetKey: String = PROMPT_PRESET_REWRITE_QWEN3,
+    val systemPrompt: String = rewriteQwen3PromptTemplate,
     val temperatureText: String = "0.0",
     val minPText: String = "0.1",
     val contextSizeText: String = "2048",
@@ -109,12 +196,19 @@ data class CustomAppSetupUiState(
     val useMlock: Boolean = false,
     val selectedTsvPath: String = "",
     val selectedTsvName: String = "",
+    val renderedRmaPromptPreview: String? = null,
+    val rmaPromptPreviewError: String? = null,
     val isBusy: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
 ) {
     val canContinue: Boolean
-        get() = selectedModel != null && errorMessage == null
+        get() =
+            errorMessage == null &&
+                when (selectedTestType) {
+                    TEST_TYPE_E2E -> availableModels.isNotEmpty()
+                    else -> selectedModel != null
+                }
 }
 
 @KoinViewModel
@@ -169,8 +263,22 @@ class CustomAppSetupViewModel(
 
     fun updateSystemPrompt(value: String) = updateAndPersist { it.copy(systemPrompt = value) }
 
+    fun selectTestType(testType: String) {
+        val defaultOptionKey = defaultEvaluatorOptionKeyForTestType(testType)
+        val defaultTemplate =
+            evaluatorOptionsForTestType(testType).firstOrNull { it.key == defaultOptionKey }?.template
+                ?: if (testType == TEST_TYPE_E2E) "" else rewriteQwen3PromptTemplate
+        updateAndPersist { state ->
+            state.copy(
+                selectedTestType = testType,
+                selectedPromptPresetKey = defaultOptionKey,
+                systemPrompt = defaultTemplate,
+            )
+        }
+    }
+
     fun selectPromptPreset(presetKey: String) {
-        val preset = promptPresetOptions.firstOrNull { it.key == presetKey } ?: return
+        val preset = evaluatorOptionsForTestType(_uiState.value.selectedTestType).firstOrNull { it.key == presetKey } ?: return
         updateAndPersist { state ->
             if (preset.key == PROMPT_PRESET_CUSTOM) {
                 state.copy(selectedPromptPresetKey = PROMPT_PRESET_CUSTOM, systemPrompt = "")
@@ -299,6 +407,7 @@ class CustomAppSetupViewModel(
                         selectedTsvName = fileName,
                     )
                 }
+                refreshRmaPromptPreview()
                 persistCurrentState()
             }.onFailure { error ->
                 _uiState.update {
@@ -314,12 +423,70 @@ class CustomAppSetupViewModel(
 
     private fun updateAndPersist(transform: (CustomAppSetupUiState) -> CustomAppSetupUiState) {
         _uiState.update(transform)
+        refreshRmaPromptPreview()
         persistCurrentState()
+    }
+
+    private fun refreshRmaPromptPreview() {
+        val state = _uiState.value
+        if (state.selectedTestType != TEST_TYPE_RMA) {
+            _uiState.update { it.copy(renderedRmaPromptPreview = null, rmaPromptPreviewError = null) }
+            return
+        }
+
+        val template = state.systemPrompt
+        val tsvPath = state.selectedTsvPath
+        if (template.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    renderedRmaPromptPreview = null,
+                    rmaPromptPreviewError = "No RMA prompt template is selected.",
+                )
+            }
+            return
+        }
+        if (tsvPath.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    renderedRmaPromptPreview = null,
+                    rmaPromptPreviewError = "Import a TSV file to render an RMA preview.",
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val previewResult =
+                runCatching {
+                    val firstRecord =
+                        CustomAppTsvLoader.load(tsvPath).firstOrNull()
+                            ?: error("TSV file has no usable rows.")
+                    CustomAppRmaPromptRenderer.render(template, firstRecord)
+                }
+            withContext(Dispatchers.Main) {
+                previewResult.onSuccess { preview ->
+                    _uiState.update {
+                        it.copy(
+                            renderedRmaPromptPreview = preview,
+                            rmaPromptPreviewError = null,
+                        )
+                    }
+                }.onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            renderedRmaPromptPreview = null,
+                            rmaPromptPreviewError = error.message ?: "Failed to render RMA prompt preview.",
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun persistCurrentState() {
         val state = _uiState.value
         sharedPrefStore.put(PREF_SETUP_MODEL_ID, state.selectedModelId)
+        sharedPrefStore.put(PREF_SETUP_TEST_TYPE, state.selectedTestType)
         sharedPrefStore.put(PREF_SETUP_PROMPT_PRESET_KEY, state.selectedPromptPresetKey)
         sharedPrefStore.put(PREF_SETUP_SYSTEM_PROMPT, state.systemPrompt)
         sharedPrefStore.put(PREF_SETUP_TEMPERATURE, state.temperatureText)
@@ -333,15 +500,23 @@ class CustomAppSetupViewModel(
     }
 
     private fun loadInitialState(): CustomAppSetupUiState {
+        val storedTestType = sharedPrefStore.get(PREF_SETUP_TEST_TYPE, TEST_TYPE_TOOLCALLING)
+        val normalizedTestType =
+            if (testTypeOptions.any { it.key == storedTestType }) storedTestType else TEST_TYPE_TOOLCALLING
         val storedPresetKey =
-            sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_CUSTOM)
+            sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, defaultEvaluatorOptionKeyForTestType(normalizedTestType))
+        val availableOptions = evaluatorOptionsForTestType(normalizedTestType)
         val normalizedPresetKey =
-            if (promptPresetOptions.any { it.key == storedPresetKey }) storedPresetKey
-            else PROMPT_PRESET_CUSTOM
+            if (availableOptions.any { it.key == storedPresetKey }) storedPresetKey
+            else defaultEvaluatorOptionKeyForTestType(normalizedTestType)
+        val defaultPromptTemplate =
+            availableOptions.firstOrNull { it.key == normalizedPresetKey }?.template
+                ?: defaultTemplateForOption(normalizedPresetKey)
         return CustomAppSetupUiState(
             selectedModelId = sharedPrefStore.get(PREF_SETUP_MODEL_ID, -1L),
+            selectedTestType = normalizedTestType,
             selectedPromptPresetKey = normalizedPresetKey,
-            systemPrompt = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "You are a helpful assistant."),
+            systemPrompt = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, defaultPromptTemplate),
             temperatureText = sharedPrefStore.get(PREF_SETUP_TEMPERATURE, "0.0"),
             minPText = sharedPrefStore.get(PREF_SETUP_MIN_P, "0.1"),
             contextSizeText = sharedPrefStore.get(PREF_SETUP_CONTEXT_SIZE, "2048"),

@@ -66,7 +66,7 @@ Use this map first, then open only the task/spec files needed for the current im
   Render system prompts by substituting TSV row data into placeholders.
 
 - [task-14-batch-run-mode-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-14-batch-run-mode-ui.md)
-  Add batch-mode selection UI for first 1, random 10, and full-dataset execution.
+  Add batch-mode selection UI for the supported dataset execution options.
 
 - [task-15-batch-inference-runner.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-15-batch-inference-runner.md)
   Execute repeated inference against TSV rows using the rendered prompt template.
@@ -143,6 +143,45 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-39-expandable-runtime-metrics-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-39-expandable-runtime-metrics-ui.md)
   Show only core metrics by default and move detailed per-case and batch metrics into an expandable section.
 
+- [task-40-rma-mode-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-40-rma-mode-spec.md)
+  Freeze the RMA rewrite task as a separate mode with its own activity and evaluator path.
+
+- [task-41-rma-entry-and-activity.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-41-rma-entry-and-activity.md)
+  Add a dedicated RMA evaluation activity or route while reusing shared app structure.
+
+- [task-42-rma-prompt-renderer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-42-rma-prompt-renderer.md)
+  Render RMA prompts from TSV `conversation_history` and `query` using the Python preprocessing shape.
+
+- [task-43-rma-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-43-rma-evaluator.md)
+  Evaluate RMA rewrite outputs against TSV `rewrited_query` in the dedicated RMA flow.
+
+- [task-44-test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-44-test-type-routing-spec.md)
+  Freeze the top-level `Toolcalling`, `RMA`, and `E2E` routing model plus conditional model selection.
+
+- [task-45-test-type-setup-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-45-test-type-setup-ui.md)
+  Refactor setup so the user picks test type first and then sees only the relevant model or pipeline options.
+
+- [task-46-toolcalling-rma-activity-split.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-46-toolcalling-rma-activity-split.md)
+  Split evaluator routing so Toolcalling and RMA use separate activity flows.
+
+- [task-47-e2e-activity-and-runner.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-47-e2e-activity-and-runner.md)
+  Add a dedicated E2E evaluator route that runs RMA first and then tool-calling rewrite.
+
+- [task-48-e2e-final-evaluator.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-48-e2e-final-evaluator.md)
+  Score only the final tool-call output in the E2E path.
+
+- [task-49-batch-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-49-batch-export-spec.md)
+  Freeze persistent batch-result export, `Top 1 / Top 50 / All`, and `unique_idx`-based resume assumptions.
+
+- [task-50-batch-result-writer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-50-batch-result-writer.md)
+  Persist per-case batch results and summary output while the run is still in progress.
+
+- [task-51-batch-resume-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-51-batch-resume-loader.md)
+  Resume a long batch run by skipping rows already present in a prior result TSV.
+
+- [task-52-batch-export-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-52-batch-export-ui.md)
+  Show export path, flush status, resume state, and the new batch-mode labels in the UI.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
@@ -183,6 +222,18 @@ Use this map first, then open only the task/spec files needed for the current im
 
 - [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
   Definitions for prefill, generation, total-time metrics, batch aggregates, and the preferred expandable UI presentation.
+
+- [batch-result-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
+  Persistent TSV export, flush cadence, resume rules, and per-case plus summary result schema for long-running batch evaluation.
+
+- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+  The dedicated RMA rewrite mode, prompt input shape, separate activity path, and rewrite-text evaluation target.
+
+- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
+  Top-level `Toolcalling`, `RMA`, and `E2E` routing plus conditional model or pipeline selection.
+
+- [e2e-evaluator-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/e2e-evaluator-spec.md)
+  The two-stage E2E flow, same-family pipeline rule, and final-only evaluation rule.
 
 ## Recommended Agent Workflow
 

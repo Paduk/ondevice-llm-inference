@@ -1,5 +1,8 @@
 package io.shubham0204.smollmandroid.ui.customapp
 
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.foundation.clickable
@@ -37,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -49,10 +53,13 @@ import androidx.navigation.compose.rememberNavController
 import io.shubham0204.smollmandroid.data.ChatMessage
 import io.shubham0204.smollmandroid.data.LLMModel
 import io.shubham0204.smollmandroid.ui.theme.SmolLMAndroidTheme
+import java.io.File
 
 private object CustomAppRoutes {
     const val Setup = "setup"
     const val ChatEvaluate = "chat_evaluate"
+    const val RmaEvaluate = "rma_evaluate"
+    const val E2eEvaluate = "e2e_evaluate"
 }
 
 @Composable
@@ -67,7 +74,13 @@ fun CustomAppRoot() {
             val viewModel: CustomAppSetupViewModel = koinViewModel()
             SetupPlaceholderScreen(
                 viewModel = viewModel,
-                onContinue = { navController.navigate(CustomAppRoutes.ChatEvaluate) }
+                onContinue = { testType ->
+                    when (testType) {
+                        TEST_TYPE_RMA -> navController.navigate(CustomAppRoutes.RmaEvaluate)
+                        TEST_TYPE_E2E -> navController.navigate(CustomAppRoutes.E2eEvaluate)
+                        else -> navController.navigate(CustomAppRoutes.ChatEvaluate)
+                    }
+                }
             )
         }
         composable(CustomAppRoutes.ChatEvaluate) {
@@ -77,6 +90,20 @@ fun CustomAppRoot() {
                 onBack = { navController.popBackStack() }
             )
         }
+        composable(CustomAppRoutes.RmaEvaluate) {
+            val viewModel: CustomAppRmaViewModel = koinViewModel()
+            RmaEvaluatePlaceholderScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(CustomAppRoutes.E2eEvaluate) {
+            val viewModel: CustomAppE2eViewModel = koinViewModel()
+            E2eEvaluateScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+            )
+        }
     }
 }
 
@@ -84,7 +111,7 @@ fun CustomAppRoot() {
 @Composable
 private fun SetupPlaceholderScreen(
     viewModel: CustomAppSetupViewModel,
-    onContinue: () -> Unit,
+    onContinue: (String) -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val modelPicker = rememberLauncherForActivityResult(GetContent()) { uri ->
@@ -143,11 +170,40 @@ private fun SetupPlaceholderScreen(
 
             SectionCard(title = "Prompt And Parameters") {
                 Text(
-                    text = "Prompt preset",
+                    text = "Test type",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
-                promptPresetOptions.chunked(2).forEach { rowOptions ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    testTypeOptions.forEach { option ->
+                        PromptPresetButton(
+                            label = option.label,
+                            selected = uiState.selectedTestType == option.key,
+                            onClick = { viewModel.selectTestType(option.key) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                Text(
+                    text =
+                        when (uiState.selectedTestType) {
+                            TEST_TYPE_RMA -> "RMA model"
+                            TEST_TYPE_E2E -> "E2E pipeline"
+                            else -> "Toolcalling model"
+                        },
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                val evaluatorOptions =
+                    when (uiState.selectedTestType) {
+                        TEST_TYPE_RMA -> rmaPromptPresetOptions
+                        TEST_TYPE_E2E -> e2ePipelineOptions
+                        else -> toolcallingPromptPresetOptions
+                    }
+                evaluatorOptions.chunked(2).forEach { rowOptions ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -165,13 +221,20 @@ private fun SetupPlaceholderScreen(
                         }
                     }
                 }
-                OutlinedTextField(
-                    value = uiState.systemPrompt,
-                    onValueChange = viewModel::updateSystemPrompt,
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3,
-                    label = { Text("System prompt") },
-                )
+                if (uiState.selectedTestType == TEST_TYPE_E2E) {
+                    Text(
+                        text = "E2E uses the selected pipeline configuration. Dedicated routing and evaluator wiring will be added in the next task.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = uiState.systemPrompt,
+                        onValueChange = viewModel::updateSystemPrompt,
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        label = { Text("System prompt") },
+                    )
+                }
                 OutlinedTextField(
                     value = uiState.temperatureText,
                     onValueChange = viewModel::updateTemperature,
@@ -243,12 +306,530 @@ private fun SetupPlaceholderScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             Button(
-                onClick = onContinue,
+                onClick = { onContinue(uiState.selectedTestType) },
                 enabled = uiState.canContinue && !uiState.isBusy,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Open Chat Flow")
+                Text(
+                    when (uiState.selectedTestType) {
+                        TEST_TYPE_RMA -> "Open RMA Flow"
+                        TEST_TYPE_E2E -> "Open E2E Flow"
+                        else -> "Open Chat Flow"
+                    },
+                )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun E2eEvaluateScreen(
+    viewModel: CustomAppE2eViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("E2E Evaluate") },
+                navigationIcon = {
+                    TextButton(onClick = onBack) {
+                        Text("Back")
+                    }
+                },
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SectionCard(title = "Pipeline") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    e2ePipelineOptions.forEach { option ->
+                        PromptPresetButton(
+                            label = option.label,
+                            selected = uiState.selectedPipelineKey == option.key,
+                            onClick = { viewModel.selectPipeline(option.key) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                MetricRow(
+                    label = "Selected pipeline",
+                    value =
+                        e2ePipelineOptions.firstOrNull { it.key == uiState.selectedPipelineKey }?.label
+                            ?: "N/A",
+                )
+            }
+
+            SectionCard(title = "Models") {
+                Text(
+                    text = "RMA model",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (uiState.availableRmaModels.isEmpty()) {
+                    Text(
+                        text = "No imported models matched the selected pipeline family.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    uiState.availableRmaModels.forEach { model ->
+                        ModelSelectionRow(
+                            model = model,
+                            isSelected = model.id == uiState.selectedRmaModelId,
+                            onSelect = { viewModel.selectRmaModel(model.id) },
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Text(
+                    text = "Toolcalling model",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (uiState.availableToolModels.isEmpty()) {
+                    Text(
+                        text = "No imported models matched the selected pipeline family.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    uiState.availableToolModels.forEach { model ->
+                        ModelSelectionRow(
+                            model = model,
+                            isSelected = model.id == uiState.selectedToolModelId,
+                            onSelect = { viewModel.selectToolModel(model.id) },
+                        )
+                    }
+                }
+            }
+
+            SectionCard(title = "Gold TSV") {
+                MetricRow(label = "Selected TSV", value = uiState.goldTsvName.ifBlank { "N/A" })
+                MetricRow(label = "Loaded records", value = uiState.goldRecords.size.toString())
+                uiState.goldTsvLoadError?.let {
+                    Text(
+                        text = "TSV load failed: $it",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            SectionCard(title = "Batch Run Mode") {
+                batchRunModeOptions.forEach { option ->
+                    RadioSelectionRow(
+                        label = option.label,
+                        selected = uiState.selectedBatchRunMode == option.key,
+                        onSelect = { viewModel.selectBatchRunMode(option.key) },
+                    )
+                    Text(
+                        text = option.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = viewModel::startBatchRun,
+                        enabled = uiState.canRun,
+                    ) {
+                        Text("Start E2E Batch")
+                    }
+                    TextButton(
+                        onClick = viewModel::stopBatchRun,
+                        enabled = uiState.isBatchRunning,
+                    ) {
+                        Text("Stop")
+                    }
+                }
+            }
+
+            SectionCard(title = "Latest Outputs") {
+                MetricRow(label = "Latest row", value = uiState.batchLatestUniqueIdx ?: "N/A")
+                Text(
+                    text = "Intermediate rewrite",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = uiState.latestIntermediateRewrite ?: "N/A",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = "Final tool output",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = uiState.latestFinalToolOutput ?: "N/A",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            SectionCard(title = "Final Evaluation") {
+                MetricRow(
+                    label = "Evaluated samples",
+                    value = uiState.evaluationHistory.size.toString(),
+                )
+                MetricRow(
+                    label = "Macro Accuracy",
+                    value = uiState.macroAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
+                )
+                uiState.latestEvaluationResult?.let { result ->
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    MetricRow(label = "Latest row", value = result.uniqueIdx)
+                    MetricRow(label = "Correct", value = if (result.isCorrect) "Yes" else "No")
+                    Text(
+                        text = "Predicted tool call",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = result.predictedAnswer,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        text = "Gold tool call",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = result.goldAnswer,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                uiState.evaluationErrorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            SectionCard(title = "Batch Summary") {
+                MetricRow(
+                    label = "Batch state",
+                    value =
+                        when {
+                            uiState.isBatchRunning -> "Running"
+                            uiState.batchCompletedCount > 0 -> "Completed"
+                            else -> "Idle"
+                        },
+                )
+                MetricRow(
+                    label = "Progress",
+                    value = "${uiState.batchCompletedCount}/${uiState.batchTotalCount} (${uiState.batchCompletionPercent}%)",
+                )
+                MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
+                uiState.batchStatusMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            SectionCard(title = "Conversation") {
+                if (uiState.conversationMessages.isEmpty()) {
+                    Text(
+                        text = "No E2E outputs yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    uiState.conversationMessages.forEach { message ->
+                        MessageCard(message = message)
+                    }
+                }
+                if (uiState.partialResponse.isNotBlank()) {
+                    MessageCard(
+                        message =
+                            ChatMessage(
+                                id = Long.MIN_VALUE + 1,
+                                chatId = -1L,
+                                message = uiState.partialResponse,
+                                isUserMessage = false,
+                            )
+                    )
+                }
+            }
+
+            uiState.errorMessage?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RmaEvaluatePlaceholderScreen(
+    viewModel: CustomAppRmaViewModel,
+    onBack: () -> Unit,
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("RMA Evaluate") },
+                navigationIcon = {
+                    TextButton(onClick = onBack) {
+                        Text("Back")
+                    }
+                },
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SectionCard(title = "Session") {
+                Text(
+                    text = "Model: ${uiState.selectedModel?.name ?: "Not selected"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text =
+                        when (uiState.selectedPromptPresetKey) {
+                            PROMPT_PRESET_RMA_QWEN3 -> "Preset: Qwen3-RMA"
+                            PROMPT_PRESET_RMA_PHI -> "Preset: Phi-RMA"
+                            else -> "Preset: ${uiState.selectedPromptPresetKey}"
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "Selected TSV: ${uiState.goldTsvName.ifBlank { "N/A" }}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            SectionCard(title = "Runtime Metrics") {
+                MetricRow(
+                    label = "Total time",
+                    value = uiState.totalTimeMs?.let { formatMillis(it) } ?: "N/A",
+                )
+                MetricRow(
+                    label = "Generation speed",
+                    value =
+                        uiState.generationSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
+                            ?: "N/A",
+                )
+                MetricRow(
+                    label = "Prompt length",
+                    value = uiState.promptTokenCount?.toString() ?: "N/A",
+                )
+            }
+
+            SectionCard(title = "Gold TSV") {
+                MetricRow(
+                    label = "Loaded records",
+                    value = uiState.goldRecords.size.toString(),
+                )
+                uiState.goldTsvLoadError?.let {
+                    Text(
+                        text = "TSV load failed: $it",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+
+            SectionCard(title = "RMA Prompt Preview") {
+                Text(
+                    text = "Prompt rendering follows the Python RMA preprocessing shape.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                uiState.renderedRmaPromptPreview?.let { preview ->
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    Text(
+                        text = "Rendered prompt preview",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = preview,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                uiState.rmaPromptPreviewError?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            SectionCard(title = "Batch Run Mode") {
+                batchRunModeOptions.forEach { option ->
+                    RadioSelectionRow(
+                        label = option.label,
+                        selected = uiState.selectedBatchRunMode == option.key,
+                        onSelect = { viewModel.selectBatchRunMode(option.key) },
+                    )
+                    Text(
+                        text = option.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
+                    )
+                }
+                MetricRow(label = "Total rows", value = uiState.batchTotalCount.toString())
+                MetricRow(label = "Completed rows", value = uiState.batchCompletedCount.toString())
+                MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
+                uiState.batchStatusMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = viewModel::startBatchRun,
+                        enabled = uiState.goldRecords.isNotEmpty() && !uiState.isBatchRunning,
+                    ) {
+                        Text("Start RMA Batch")
+                    }
+                    TextButton(
+                        onClick = viewModel::stopBatchRun,
+                        enabled = uiState.isBatchRunning,
+                    ) {
+                        Text("Stop")
+                    }
+                }
+            }
+
+            SectionCard(title = "Evaluation") {
+                MetricRow(
+                    label = "Exact match accuracy",
+                    value = uiState.exactMatchAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
+                )
+                MetricRow(
+                    label = "Evaluated samples",
+                    value = uiState.evaluationHistory.size.toString(),
+                )
+                uiState.latestEvaluationResult?.let { result ->
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    MetricRow(label = "Latest row", value = result.uniqueIdx)
+                    MetricRow(label = "Correct", value = if (result.isCorrect) "Yes" else "No")
+                    Text(
+                        text = "Predicted rewrite",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(text = result.predictedRewrite, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = "Gold rewrite",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(text = result.goldRewrite, style = MaterialTheme.typography.bodySmall)
+                }
+                uiState.evaluationErrorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            SectionCard(title = "Batch Summary") {
+                MetricRow(
+                    label = "Batch state",
+                    value =
+                        when {
+                            uiState.isBatchRunning -> "Running"
+                            uiState.batchCompletedCount > 0 -> "Completed"
+                            else -> "Idle"
+                        },
+                )
+                MetricRow(
+                    label = "Progress",
+                    value = "${uiState.batchCompletedCount}/${uiState.batchTotalCount} (${uiState.batchCompletionPercent}%)",
+                )
+                MetricRow(
+                    label = "Success rate",
+                    value = uiState.batchSuccessRate?.let { "${"%.2f".format(it * 100)}%" } ?: "N/A",
+                )
+                MetricRow(
+                    label = "Batch avg generation",
+                    value = uiState.batchAverageGenerationTimeMs?.let { formatMillis(it) } ?: "N/A",
+                )
+                MetricRow(
+                    label = "Batch avg prefill",
+                    value = uiState.batchAveragePrefillTimeMs?.let { formatMillis(it) } ?: "N/A",
+                )
+            }
+
+            SectionCard(title = "Conversation") {
+                if (uiState.conversationMessages.isEmpty()) {
+                    Text(
+                        text = "No RMA outputs yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    uiState.conversationMessages.forEach { message ->
+                        MessageCard(message = message)
+                    }
+                }
+                if (uiState.partialResponse.isNotBlank()) {
+                    MessageCard(
+                        message =
+                            ChatMessage(
+                                id = Long.MIN_VALUE,
+                                chatId = -1L,
+                                message = uiState.partialResponse,
+                                isUserMessage = false,
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageCard(message: ChatMessage) {
+    Card(
+        colors = CardDefaults.cardColors(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = if (message.isUserMessage) "User" else "Assistant",
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = message.message,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }
@@ -260,6 +841,7 @@ private fun ChatEvaluatePlaceholderScreen(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var showMetricDetails by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
@@ -502,11 +1084,66 @@ private fun ChatEvaluatePlaceholderScreen(
                     value =
                         batchRunModeOptions.firstOrNull {
                             it.key == uiState.selectedBatchRunMode
-                        }?.label ?: "First 1",
+                        }?.label ?: "Top 1",
                 )
                 MetricRow(label = "Total rows", value = uiState.batchTotalCount.toString())
                 MetricRow(label = "Completed rows", value = uiState.batchCompletedCount.toString())
                 MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
+                MetricRow(
+                    label = "Run type",
+                    value = if (uiState.batchIsResumed) "Resumed" else "Fresh",
+                )
+                if (uiState.batchIsResumed) {
+                    MetricRow(
+                        label = "Skipped rows",
+                        value = uiState.batchResumeSkippedCount.toString(),
+                    )
+                }
+                MetricRow(
+                    label = "Result file",
+                    value = uiState.batchResultFilePath?.substringAfterLast('/') ?: "N/A",
+                )
+                MetricRow(
+                    label = "Last flush",
+                    value =
+                        if (uiState.batchLastFlushCompletedCount > 0) {
+                            "${uiState.batchLastFlushCompletedCount} rows"
+                        } else {
+                            "Not saved yet"
+                        },
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            uiState.batchResultFilePath?.let {
+                                shareExportFile(
+                                    context = context,
+                                    path = it,
+                                    mimeType = "text/tab-separated-values",
+                                    chooserTitle = "Share batch results TSV",
+                                )
+                            }
+                        },
+                        enabled = uiState.batchResultFilePath != null,
+                    ) {
+                        Text("Share Results")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            uiState.batchSummaryFilePath?.let {
+                                shareExportFile(
+                                    context = context,
+                                    path = it,
+                                    mimeType = "application/json",
+                                    chooserTitle = "Share batch summary JSON",
+                                )
+                            }
+                        },
+                        enabled = uiState.batchSummaryFilePath != null,
+                    ) {
+                        Text("Share Summary")
+                    }
+                }
                 MetricRow(
                     label = "Latest row",
                     value = uiState.batchLatestUniqueIdx ?: "N/A",
@@ -925,6 +1562,24 @@ private fun PartialResponseBubble(response: String) {
             Text(text = response, style = MaterialTheme.typography.bodyMedium)
         }
     }
+}
+
+private fun shareExportFile(
+    context: Context,
+    path: String,
+    mimeType: String,
+    chooserTitle: String,
+) {
+    val file = File(path)
+    if (!file.exists()) return
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val intent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    context.startActivity(Intent.createChooser(intent, chooserTitle))
 }
 
 @Preview

@@ -27,6 +27,7 @@ Optional if easily available:
 - `prompt length`: prompt token count used by the model
 - `generated token count`: number of output tokens produced
 - `generation token/s`: `generated token count / generation time`
+- `overall token/s`: `(prompt length + generated token count) / total time`
 
 ## Frozen UI Policy
 
@@ -49,6 +50,8 @@ For batch runs with 2 or more evaluated rows, the app should also track:
 - average prefill time
 - average generation time
 - average generation token/s
+- average prefill token/s
+- average overall token/s
 
 If the batch has only 1 completed row, the batch summary may simply mirror the per-case metrics.
 
@@ -72,6 +75,7 @@ Show the rest only when the user explicitly expands a details section:
 - `generation time`
 - `generated token count`
 - optional `prefill token/s`
+- optional `overall token/s`
 - batch totals and averages
 
 ## UI Form Recommendation

@@ -1,13 +1,18 @@
 package io.shubham0204.smollmandroid.ui.customapp
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.shubham0204.smollm.SmolLM
 import io.shubham0204.smollmandroid.data.ApiMetadataAssetStore
 import io.shubham0204.smollmandroid.data.AppDB
+import io.shubham0204.smollmandroid.data.BatchExportSession
+import io.shubham0204.smollmandroid.data.BatchResultExportStore
 import io.shubham0204.smollmandroid.data.Chat
 import io.shubham0204.smollmandroid.data.ChatMessage
 import io.shubham0204.smollmandroid.data.LLMModel
+import io.shubham0204.smollmandroid.data.PersistedBatchCaseResult
+import io.shubham0204.smollmandroid.data.PersistedBatchSummary
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
 import kotlinx.coroutines.Dispatchers
@@ -21,10 +26,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.annotation.KoinViewModel
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.random.Random
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
 private const val PREF_SETUP_SYSTEM_PROMPT = "custom_app.setup.system_prompt"
@@ -39,7 +45,7 @@ private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
 private const val PREF_BATCH_RUN_MODE = "custom_app.batch.run_mode"
 
 const val BATCH_RUN_MODE_FIRST_1 = "first_1"
-const val BATCH_RUN_MODE_RANDOM_10 = "random_10"
+const val BATCH_RUN_MODE_TOP_50 = "top_50"
 const val BATCH_RUN_MODE_ALL = "all"
 
 data class BatchRunModeOption(
@@ -52,13 +58,13 @@ val batchRunModeOptions =
     listOf(
         BatchRunModeOption(
             key = BATCH_RUN_MODE_FIRST_1,
-            label = "First 1",
+            label = "Top 1",
             description = "Run only the first valid TSV row.",
         ),
         BatchRunModeOption(
-            key = BATCH_RUN_MODE_RANDOM_10,
-            label = "Random 10",
-            description = "Run up to 10 randomly selected TSV rows.",
+            key = BATCH_RUN_MODE_TOP_50,
+            label = "Top 50",
+            description = "Run up to the first 50 valid TSV rows.",
         ),
         BatchRunModeOption(
             key = BATCH_RUN_MODE_ALL,
@@ -108,6 +114,11 @@ data class CustomAppChatUiState(
     val batchPrefillSpeedSum: Float = 0f,
     val batchLatestUniqueIdx: String? = null,
     val batchStatusMessage: String? = null,
+    val batchResultFilePath: String? = null,
+    val batchSummaryFilePath: String? = null,
+    val batchLastFlushCompletedCount: Int = 0,
+    val batchIsResumed: Boolean = false,
+    val batchResumeSkippedCount: Int = 0,
     val evaluationHistory: List<EvaluationResult> = emptyList(),
     val latestEvaluationResult: EvaluationResult? = null,
     val macroAccuracy: Float? = null,
@@ -149,9 +160,12 @@ data class CustomAppChatUiState(
 
 @KoinViewModel
 class CustomAppChatViewModel(
+    @Suppress("UnusedPrivateProperty")
+    private val context: Context,
     private val appDB: AppDB,
     private val sharedPrefStore: SharedPrefStore,
     private val apiMetadataAssetStore: ApiMetadataAssetStore,
+    private val batchResultExportStore: BatchResultExportStore,
     private val smolLMManager: SmolLMManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CustomAppChatUiState())
@@ -343,6 +357,11 @@ class CustomAppChatViewModel(
                 batchTotalGeneratedTokens = 0,
                 batchGenerationSpeedSum = 0f,
                 batchPrefillSpeedSum = 0f,
+                batchResultFilePath = null,
+                batchSummaryFilePath = null,
+                batchLastFlushCompletedCount = 0,
+                batchIsResumed = false,
+                batchResumeSkippedCount = 0,
                 statusMessage = "Conversation cleared.",
                 errorMessage = null,
             )
@@ -381,6 +400,23 @@ class CustomAppChatViewModel(
         batchRunJob?.cancel()
         batchRunJob =
             viewModelScope.launch(Dispatchers.Main) {
+                var exportSession: BatchExportSession? = null
+                val persistedResults = mutableListOf<PersistedBatchCaseResult>()
+                var runCreatedAt = nowIsoString()
+                val promptTemplate = originalChat.systemPrompt
+                val promptHash = batchResultExportStore.hashPrompt(promptTemplate)
+                val resumeCandidate =
+                    batchResultExportStore.findLatestResumeCandidate(
+                        sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                        batchMode = currentState.selectedBatchRunMode,
+                        promptHash = promptHash,
+                    )
+                val resumedRows = resumeCandidate?.priorRows.orEmpty()
+                val resumedIds = resumedRows.map { it.uniqueIdx }.toSet()
+                val rowsToRun = selectedRows.filterNot { it.uniqueIdx in resumedIds }
+                val resumedHistory = resumedRows.toEvaluationHistory()
+                val resumedMacroAccuracy = computeMacroAccuracy(resumedHistory)
+                val resumedFailedCount = resumedRows.count { it.status != "success" }
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
@@ -394,29 +430,70 @@ class CustomAppChatViewModel(
                         generatedTokenCount = null,
                         latestRawModelOutput = null,
                         batchTotalCount = selectedRows.size,
-                        batchCompletedCount = 0,
-                        batchFailedCount = 0,
-                        batchTotalPrefillTimeMs = 0,
-                        batchTotalGenerationTimeMs = 0,
-                        batchTotalGeneratedTokens = 0,
-                        batchGenerationSpeedSum = 0f,
-                        batchPrefillSpeedSum = 0f,
+                        batchCompletedCount = resumedRows.size,
+                        batchFailedCount = resumedFailedCount,
+                        batchTotalPrefillTimeMs = resumedRows.sumOf { it.prefillTimeMs },
+                        batchTotalGenerationTimeMs = resumedRows.sumOf { it.generationTimeMs },
+                        batchTotalGeneratedTokens = resumedRows.sumOf { it.generatedTokens },
+                        batchGenerationSpeedSum =
+                            resumedRows.sumOf { it.generationTokensPerSec.toDouble() }.toFloat(),
+                        batchPrefillSpeedSum =
+                            resumedRows.sumOf { it.prefillTokensPerSec.toDouble() }.toFloat(),
                         batchLatestUniqueIdx = null,
-                        batchStatusMessage = "Starting batch run...",
+                        batchResultFilePath = resumeCandidate?.session?.resultsFile?.absolutePath,
+                        batchSummaryFilePath = resumeCandidate?.session?.summaryFile?.absolutePath,
+                        batchLastFlushCompletedCount = resumedRows.size,
+                        batchIsResumed = resumeCandidate != null,
+                        batchResumeSkippedCount = resumedRows.size,
+                        evaluationHistory = resumedHistory,
+                        macroAccuracy = resumedMacroAccuracy,
+                        batchStatusMessage =
+                            if (resumeCandidate != null) {
+                                "Resuming batch run from ${resumedRows.size}/${selectedRows.size}..."
+                            } else {
+                                "Starting batch run..."
+                            },
                         statusMessage = null,
                         errorMessage = null,
                     )
                 }
 
+                if (rowsToRun.isEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            batchStatusMessage = "Batch run already complete.",
+                            statusMessage = "Batch run already complete.",
+                        )
+                    }
+                    return@launch
+                }
+
                 smolLMManager.unload()
                 var tempChat: Chat? = null
                 try {
-                    val promptTemplate = originalChat.systemPrompt
                     val apiMetadataByPlan = apiMetadataAssetStore.getAllSimple()
+                    exportSession =
+                        resumeCandidate?.session
+                            ?: batchResultExportStore.createSession(
+                                sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                                testType = "Toolcalling",
+                                modelName = selectedModel.name,
+                            )
+                    if (resumeCandidate != null) {
+                        persistedResults += resumedRows
+                        runCreatedAt = resumedRows.firstOrNull()?.evaluatedAt ?: runCreatedAt
+                    }
                     tempChat = createBatchChat(originalChat)
                     loadModelSuspend(tempChat, selectedModel.path)
+                    _uiState.update {
+                        it.copy(
+                            batchResultFilePath = exportSession.resultsFile.absolutePath,
+                            batchSummaryFilePath = exportSession.summaryFile.absolutePath,
+                        )
+                    }
 
-                    selectedRows.forEachIndexed { index, record ->
+                    rowsToRun.forEachIndexed { _, record ->
                         val renderResult =
                             CustomAppPromptTemplateRenderer.render(
                                 template = promptTemplate,
@@ -427,7 +504,7 @@ class CustomAppChatViewModel(
                             it.copy(
                                 batchLatestUniqueIdx = record.uniqueIdx,
                                 batchStatusMessage =
-                                    "Running ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                                    "Running ${persistedResults.size + 1}/${selectedRows.size}: ${record.uniqueIdx}",
                                 renderedPromptPreview = renderResult.prompt,
                                 renderedToolsMissingPlans = renderResult.missingPlans,
                                 renderedToolsCandidateCount = renderResult.parsedCandidateCount,
@@ -440,7 +517,7 @@ class CustomAppChatViewModel(
                         val response = getRawResponseSuspend(renderResult.prompt)
                         val batchOutputMessage =
                             ChatMessage(
-                                id = -((index + 1).toLong()),
+                                id = -((persistedResults.size + 1).toLong()),
                                 chatId = originalChat.id,
                                 message = response.response,
                                 isUserMessage = false,
@@ -463,6 +540,43 @@ class CustomAppChatViewModel(
                             } ?: currentUiState.evaluationHistory
                         val isFailed =
                             parseResult.isFailure || evaluationSummary.errorMessage != null
+                        val latestResult = evaluationSummary.latestResult
+                        persistedResults +=
+                            PersistedBatchCaseResult(
+                                uniqueIdx = record.uniqueIdx,
+                                query = record.query,
+                                rewritedQuery = record.rewritedQuery,
+                                goldAnswer = record.answer,
+                                generated = response.response,
+                                parseSuccess = parseResult.isSuccess,
+                                planCorrect = latestResult?.isPlanCorrect ?: false,
+                                argumentsCorrect = latestResult?.isArgumentsCorrect ?: false,
+                                allCorrect = latestResult?.isCorrect ?: false,
+                                prefillTokensPerSec = response.prefillSpeed,
+                                generationTokensPerSec = response.generationSpeed,
+                                overallTokensPerSec =
+                                    computeOverallTokensPerSec(
+                                        promptTokens = response.promptTokenCount,
+                                        generatedTokens = response.generatedTokenCount,
+                                        totalTimeMs = response.totalTimeMs,
+                                    ),
+                                prefillTimeMs = response.prefillTimeMs,
+                                generationTimeMs = response.generationTimeMs,
+                                totalTimeMs = response.totalTimeMs,
+                                promptTokens = response.promptTokenCount,
+                                generatedTokens = response.generatedTokenCount,
+                                status =
+                                    when {
+                                        parseResult.isFailure -> "parse_failed"
+                                        evaluationSummary.errorMessage != null -> "evaluation_failed"
+                                        else -> "success"
+                                    },
+                                errorMessage =
+                                    evaluationSummary.errorMessage
+                                        ?: parseResult.exceptionOrNull()?.message
+                                        ?: "",
+                                evaluatedAt = nowIsoString(),
+                            )
 
                         _uiState.update {
                             it.copy(
@@ -485,7 +599,7 @@ class CustomAppChatViewModel(
                                 latestEvaluationResult = evaluationSummary.latestResult,
                                 macroAccuracy = evaluationSummary.macroAccuracy,
                                 evaluationErrorMessage = evaluationSummary.errorMessage,
-                                batchCompletedCount = index + 1,
+                                batchCompletedCount = persistedResults.size,
                                 batchFailedCount =
                                     if (isFailed) currentUiState.batchFailedCount + 1
                                     else currentUiState.batchFailedCount,
@@ -500,24 +614,79 @@ class CustomAppChatViewModel(
                                 batchPrefillSpeedSum =
                                     currentUiState.batchPrefillSpeedSum + response.prefillSpeed,
                                 batchStatusMessage =
-                                    "Completed ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                                    "Completed ${persistedResults.size}/${selectedRows.size}: ${record.uniqueIdx}",
                             )
                         }
+
+                        if (persistedResults.size % 10 == 0) {
+                            flushBatchExport(
+                                exportSession = exportSession,
+                                rows = persistedResults,
+                                sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                                sourceTsvRowCount = currentState.goldRecords.size,
+                                selectedRowCount = selectedRows.size,
+                                batchMode = currentState.selectedBatchRunMode,
+                                promptTemplate = promptTemplate,
+                                macroAccuracy = evaluationSummary.macroAccuracy,
+                                failedRows = persistedResults.count { it.status != "success" },
+                                runCreatedAt = runCreatedAt,
+                                isResumed = resumeCandidate != null,
+                                resumeSkippedRows = resumedRows.size,
+                            )
+                            _uiState.update {
+                                it.copy(
+                                    batchLastFlushCompletedCount = persistedResults.size,
+                                    batchStatusMessage =
+                                        "Completed ${persistedResults.size}/${selectedRows.size}: ${record.uniqueIdx} (saved ${persistedResults.size})",
+                                )
+                            }
+                        }
                     }
+
+                    flushBatchExport(
+                        exportSession = exportSession,
+                        rows = persistedResults,
+                        sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                        sourceTsvRowCount = currentState.goldRecords.size,
+                        selectedRowCount = selectedRows.size,
+                        batchMode = currentState.selectedBatchRunMode,
+                        promptTemplate = promptTemplate,
+                        macroAccuracy = _uiState.value.macroAccuracy,
+                        failedRows = persistedResults.count { it.status != "success" },
+                        runCreatedAt = runCreatedAt,
+                        isResumed = resumeCandidate != null,
+                        resumeSkippedRows = resumedRows.size,
+                    )
 
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
                             batchStatusMessage = "Batch run finished.",
                             statusMessage = "Batch run finished.",
+                            batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
                 } catch (error: Exception) {
+                    flushBatchExport(
+                        exportSession = exportSession,
+                        rows = persistedResults,
+                        sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                        sourceTsvRowCount = currentState.goldRecords.size,
+                        selectedRowCount = selectedRows.size,
+                        batchMode = currentState.selectedBatchRunMode,
+                        promptTemplate = originalChat.systemPrompt,
+                        macroAccuracy = _uiState.value.macroAccuracy,
+                        failedRows = persistedResults.count { it.status != "success" },
+                        runCreatedAt = runCreatedAt,
+                        isResumed = resumeCandidate != null,
+                        resumeSkippedRows = resumedRows.size,
+                    )
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
                             batchStatusMessage = null,
                             errorMessage = error.message ?: "Batch run failed.",
+                            batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
                 } finally {
@@ -650,7 +819,9 @@ class CustomAppChatViewModel(
                         goldTsvName = goldTsvName,
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
                         selectedBatchRunMode =
-                            sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1),
+                            sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1)
+                                .takeIf { mode -> batchRunModeOptions.any { it.key == mode } }
+                                ?: BATCH_RUN_MODE_FIRST_1,
                         renderedPromptPreview = previewResult?.prompt,
                         renderedToolsMissingPlans = previewResult?.missingPlans ?: emptyList(),
                         renderedToolsCandidateCount = previewResult?.parsedCandidateCount ?: 0,
@@ -727,10 +898,55 @@ class CustomAppChatViewModel(
     ): List<GoldTsvRecord> =
         when (mode) {
             BATCH_RUN_MODE_FIRST_1 -> goldRecords.take(1)
-            BATCH_RUN_MODE_RANDOM_10 -> goldRecords.shuffled(Random(System.currentTimeMillis())).take(10)
+            BATCH_RUN_MODE_TOP_50 -> goldRecords.take(50)
             BATCH_RUN_MODE_ALL -> goldRecords
             else -> goldRecords.take(1)
         }
+
+    private suspend fun flushBatchExport(
+        exportSession: BatchExportSession?,
+        rows: List<PersistedBatchCaseResult>,
+        sourceTsvName: String,
+        sourceTsvRowCount: Int,
+        selectedRowCount: Int,
+        batchMode: String,
+        promptTemplate: String,
+        macroAccuracy: Float?,
+        failedRows: Int,
+        runCreatedAt: String,
+        isResumed: Boolean,
+        resumeSkippedRows: Int,
+    ) {
+        if (exportSession == null || rows.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            batchResultExportStore.writeResults(
+                session = exportSession,
+                rows = rows,
+                summary =
+                    PersistedBatchSummary(
+                        runId = exportSession.runId,
+                        sourceTsvName = sourceTsvName,
+                        sourceTsvRowCount = sourceTsvRowCount,
+                        selectedRowCount = selectedRowCount,
+                        batchMode = batchMode,
+                        promptHash = batchResultExportStore.hashPrompt(promptTemplate),
+                        isResumed = isResumed,
+                        resumeSkippedRows = resumeSkippedRows,
+                        completedRows = rows.size,
+                        failedRows = failedRows,
+                        macroAccuracy = macroAccuracy,
+                        avgPrefillTokensPerSec = rows.map { it.prefillTokensPerSec }.averageOrNull(),
+                        avgGenerationTokensPerSec = rows.map { it.generationTokensPerSec }.averageOrNull(),
+                        avgOverallTokensPerSec = rows.map { it.overallTokensPerSec }.averageOrNull(),
+                        avgPrefillTimeMs = rows.map { it.prefillTimeMs }.averageLongOrNull(),
+                        avgGenerationTimeMs = rows.map { it.generationTimeMs }.averageLongOrNull(),
+                        avgTotalTimeMs = rows.map { it.totalTimeMs }.averageLongOrNull(),
+                        createdAt = runCreatedAt,
+                        updatedAt = nowIsoString(),
+                    ),
+            )
+        }
+    }
 
     private fun createBatchChat(originalChat: Chat): Chat =
         appDB.addChat(
@@ -857,4 +1073,51 @@ private fun String.toEscapedDebugString(): String {
         }
     }
     return builder.toString()
+}
+
+private fun computeOverallTokensPerSec(
+    promptTokens: Int,
+    generatedTokens: Int,
+    totalTimeMs: Long,
+): Float {
+    if (totalTimeMs <= 0L) return 0f
+    return ((promptTokens + generatedTokens).toFloat() / totalTimeMs.toFloat()) * 1000f
+}
+
+private fun Iterable<Float>.averageOrNull(): Float? {
+    val list = this.toList()
+    if (list.isEmpty()) return null
+    return list.sum() / list.size.toFloat()
+}
+
+private fun Iterable<Long>.averageLongOrNull(): Long? {
+    val list = this.toList()
+    if (list.isEmpty()) return null
+    return list.sum() / list.size
+}
+
+private fun nowIsoString(): String =
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
+
+private fun List<PersistedBatchCaseResult>.toEvaluationHistory(): List<EvaluationResult> =
+    this.map {
+        EvaluationResult(
+            uniqueIdx = it.uniqueIdx,
+            goldAnswer = it.goldAnswer,
+            predictedAnswer = it.generated,
+            isPlanCorrect = it.planCorrect,
+            isArgumentsCorrect = it.argumentsCorrect,
+            isCorrect = it.allCorrect,
+        )
+    }
+
+private fun computeMacroAccuracy(results: List<EvaluationResult>): Float? {
+    if (results.isEmpty()) return null
+    val byGoldAnswer = results.groupBy { it.goldAnswer }
+    return byGoldAnswer.values
+        .map { classResults ->
+            classResults.count { it.isCorrect }.toFloat() / classResults.size.toFloat()
+        }
+        .average()
+        .toFloat()
 }
