@@ -4,7 +4,7 @@
 
 This directory is the document hub for the compact custom app built from `SmolChat-Android`.
 
-Use this map first, then open only the task/spec files needed for the current implementation step.
+Use the root [README.md](/home/hj153lee/SmolChat-Android/README.md) first, then use this map to open only the task/spec files needed for the current implementation step.
 
 ## Read Order
 
@@ -13,6 +13,13 @@ Use this map first, then open only the task/spec files needed for the current im
 3. the relevant file in `tasks/`
 4. any referenced file in `specs/`
 5. `architecture.md` only if code-structure context is needed
+
+In practice:
+
+1. read the root [README.md](/home/hj153lee/SmolChat-Android/README.md)
+2. read [roadmap.md](/home/hj153lee/SmolChat-Android/docs/custom-app/roadmap.md)
+3. read one target task doc
+4. read only the linked specs you actually need
 
 ## Document Map
 

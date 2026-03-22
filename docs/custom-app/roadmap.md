@@ -87,18 +87,15 @@
 - generation is capped to avoid runaway output during malformed runs
 - the UI can delete saved batch result files so the next run starts fresh
 
-## Phase 8 Export Reuse Acceptance Criteria
+### Phase 8 Shared UI
 
 - Toolcalling and RMA share the same batch export-actions UI and state labels
 - Toolcalling and RMA keep evaluator summaries separate while reusing export controls
-
-## Phase 8 Follow-up Acceptance Criteria
-
 - Toolcalling and RMA share the same runtime-metrics labels and layout
 - Toolcalling and RMA share the same details-toggle behavior
 - runtime metrics are reused as a shared inference UI component while evaluator summaries remain separate
 
-## Phase 8 Stability Acceptance Criteria
+### Phase 8 Stability
 
 - pressing `Stop` during any long-running batch test does not crash the app
 - batch cancellation is treated as a normal stopped state, not an error path
@@ -165,6 +162,7 @@
 54. [task-54-shared-runtime-metrics-component.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-54-shared-runtime-metrics-component.md)
 55. [task-55-batch-stop-safety-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-55-batch-stop-safety-spec.md)
 56. [task-56-batch-stop-crash-fix.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-56-batch-stop-crash-fix.md)
+57. [task-57-shared-rma-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-57-shared-rma-export-spec.md)
 
 ## Checklist
 
@@ -214,7 +212,7 @@
 - [x] Freeze prefill and generation metric definitions
 - [x] Expose separate prefill and generation metrics from native inference
 - [x] Show detailed metrics behind an expandable UI
-- [ ] Freeze RMA rewrite mode as a separate activity flow
+- [x] Freeze RMA rewrite mode as a separate activity flow
 - [x] Add a dedicated RMA evaluation activity or route
 - [x] Render RMA prompts from TSV `conversation_history` and `query`
 - [x] Evaluate RMA outputs against TSV `rewrited_query`
