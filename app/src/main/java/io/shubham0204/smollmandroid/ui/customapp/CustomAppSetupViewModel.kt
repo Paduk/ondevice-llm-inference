@@ -33,6 +33,8 @@ private const val PREF_SETUP_USE_MMAP = "custom_app.setup.use_mmap"
 private const val PREF_SETUP_USE_MLOCK = "custom_app.setup.use_mlock"
 private const val PREF_SETUP_TSV_PATH = "custom_app.setup.tsv_path"
 private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
+private const val DEFAULT_GOLD_TSV_ASSET_NAME = "tc.tsv"
+private const val DEFAULT_GOLD_TSV_FILE_NAME = "tc.tsv"
 
 const val PROMPT_PRESET_CUSTOM = "custom"
 const val PROMPT_PRESET_REWRITE_QWEN3 = "rewrite_qwen3"
@@ -500,6 +502,7 @@ class CustomAppSetupViewModel(
     }
 
     private fun loadInitialState(): CustomAppSetupUiState {
+        val (initialTsvPath, initialTsvName) = resolveInitialTsvSelection()
         val storedTestType = sharedPrefStore.get(PREF_SETUP_TEST_TYPE, TEST_TYPE_TOOLCALLING)
         val normalizedTestType =
             if (testTypeOptions.any { it.key == storedTestType }) storedTestType else TEST_TYPE_TOOLCALLING
@@ -523,9 +526,37 @@ class CustomAppSetupViewModel(
             numThreadsText = sharedPrefStore.get(PREF_SETUP_NUM_THREADS, "4"),
             useMmap = sharedPrefStore.get(PREF_SETUP_USE_MMAP, true),
             useMlock = sharedPrefStore.get(PREF_SETUP_USE_MLOCK, false),
-            selectedTsvPath = sharedPrefStore.get(PREF_SETUP_TSV_PATH, ""),
-            selectedTsvName = sharedPrefStore.get(PREF_SETUP_TSV_NAME, ""),
+            selectedTsvPath = initialTsvPath,
+            selectedTsvName = initialTsvName,
         )
+    }
+
+    private fun resolveInitialTsvSelection(): Pair<String, String> {
+        val storedPath = sharedPrefStore.get(PREF_SETUP_TSV_PATH, "")
+        val storedName = sharedPrefStore.get(PREF_SETUP_TSV_NAME, "")
+        if (storedPath.isNotBlank()) {
+            val storedFile = File(storedPath)
+            if (storedFile.exists()) {
+                return storedFile.absolutePath to storedName.ifBlank { storedFile.name }
+            }
+        }
+        return ensureBundledDefaultGoldTsv()
+    }
+
+    private fun ensureBundledDefaultGoldTsv(): Pair<String, String> {
+        val customAppDir = File(context.filesDir, "custom_app")
+        if (!customAppDir.exists()) {
+            customAppDir.mkdirs()
+        }
+        val bundledFile = File(customAppDir, DEFAULT_GOLD_TSV_FILE_NAME)
+        if (!bundledFile.exists()) {
+            context.assets.open(DEFAULT_GOLD_TSV_ASSET_NAME).use { input ->
+                FileOutputStream(bundledFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        return bundledFile.absolutePath to DEFAULT_GOLD_TSV_FILE_NAME
     }
 
     private fun checkGgufFile(uri: Uri): Boolean {

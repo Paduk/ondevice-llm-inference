@@ -9,8 +9,11 @@ import io.shubham0204.smollmandroid.data.ChatMessage
 import io.shubham0204.smollmandroid.data.LLMModel
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -54,6 +57,7 @@ data class CustomAppRmaUiState(
     val batchConversationMessages: List<ChatMessage> = emptyList(),
     val partialResponse: String = "",
     val isBatchRunning: Boolean = false,
+    val isBatchStopping: Boolean = false,
     val batchTotalCount: Int = 0,
     val batchCompletedCount: Int = 0,
     val batchFailedCount: Int = 0,
@@ -152,6 +156,7 @@ class CustomAppRmaViewModel(
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
+                        isBatchStopping = false,
                         batchConversationMessages = emptyList(),
                         partialResponse = "",
                         batchTotalCount = selectedRows.size,
@@ -265,35 +270,57 @@ class CustomAppRmaViewModel(
                             statusMessage = "RMA batch run finished.",
                         )
                     }
+                } catch (_: CancellationException) {
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            isBatchStopping = false,
+                            batchStatusMessage = "RMA batch run stopped.",
+                            statusMessage = "RMA batch run stopped.",
+                            errorMessage = null,
+                        )
+                    }
                 } catch (error: Exception) {
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
+                            isBatchStopping = false,
                             batchStatusMessage = null,
                             errorMessage = error.message ?: "RMA batch run failed.",
                         )
                     }
                 } finally {
-                    tempChat?.let {
-                        appDB.deleteMessages(it.id)
-                        appDB.deleteChat(it)
+                    withContext(NonCancellable) {
+                        tempChat?.let {
+                            appDB.deleteMessages(it.id)
+                            appDB.deleteChat(it)
+                        }
+                        smolLMManager.unloadSafely()
+                        batchRunJob = null
+                        _uiState.update {
+                            it.copy(
+                                isBatchRunning = false,
+                                isBatchStopping = false,
+                            )
+                        }
                     }
-                    smolLMManager.unload()
                 }
             }
     }
 
     fun stopBatchRun() {
-        batchRunJob?.cancel()
-        batchRunJob = null
-        smolLMManager.stopResponseGeneration()
-        smolLMManager.unload()
         _uiState.update {
             it.copy(
-                isBatchRunning = false,
-                batchStatusMessage = "RMA batch run stopped.",
-                statusMessage = "RMA batch run stopped.",
+                isBatchStopping = true,
+                batchStatusMessage = "Stopping RMA batch run...",
+                statusMessage = null,
+                errorMessage = null,
             )
+        }
+        viewModelScope.launch(Dispatchers.Main) {
+            smolLMManager.stopResponseGenerationAndWait()
+            batchRunJob?.cancelAndJoin()
+            batchRunJob = null
         }
     }
 

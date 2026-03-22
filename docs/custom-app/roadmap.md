@@ -87,11 +87,25 @@
 - generation is capped to avoid runaway output during malformed runs
 - the UI can delete saved batch result files so the next run starts fresh
 
+## Phase 8 Export Reuse Acceptance Criteria
+
+- Toolcalling and RMA share the same batch export-actions UI and state labels
+- Toolcalling and RMA keep evaluator summaries separate while reusing export controls
+
 ## Phase 8 Follow-up Acceptance Criteria
 
 - Toolcalling and RMA share the same runtime-metrics labels and layout
 - Toolcalling and RMA share the same details-toggle behavior
 - runtime metrics are reused as a shared inference UI component while evaluator summaries remain separate
+
+## Phase 8 Stability Acceptance Criteria
+
+- pressing `Stop` during any long-running batch test does not crash the app
+- batch cancellation is treated as a normal stopped state, not an error path
+- native inference is not unloaded or closed before in-flight generation work has fully stopped
+- Toolcalling, RMA, and E2E all follow the same stop or cancel safety contract
+- interactive state can be restored after a stopped batch without requiring app restart
+- the setup flow includes bundled `tc.tsv` as the default gold TSV without requiring manual import
 
 ## Execution Order
 
@@ -149,6 +163,8 @@
 52. [task-52-batch-export-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-52-batch-export-ui.md)
 53. [task-53-shared-runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-53-shared-runtime-metrics-spec.md)
 54. [task-54-shared-runtime-metrics-component.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-54-shared-runtime-metrics-component.md)
+55. [task-55-batch-stop-safety-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-55-batch-stop-safety-spec.md)
+56. [task-56-batch-stop-crash-fix.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-56-batch-stop-crash-fix.md)
 
 ## Checklist
 
@@ -215,6 +231,10 @@
 - [x] Allow saved batch result files to be deleted from the UI
 - [x] Freeze shared Toolcalling/RMA runtime-metrics contract
 - [x] Reuse one runtime-metrics component across Toolcalling and RMA
+- [x] Freeze batch stop/cancel safety contract across Toolcalling, RMA, and E2E
+- [x] Stop batch runs without crash and restore interactive state safely
+- [x] Bundle `tc.tsv` as the default gold TSV asset
+- [x] Freeze shared Toolcalling/RMA batch export-actions contract
 
 ## Agent Update Rules
 
@@ -299,3 +319,9 @@ When an agent completes a task, update:
 - 2026-03-19: Task 52 completed. The tool-calling batch UI now uses `Top 1 / Top 50 / All`, shows whether a run is fresh or resumed, exposes skipped-row count for resumed runs, and displays the current result file name plus the last flush count without dumping export internals into the main screen.
 - 2026-03-19: Phase 8 follow-up applied. Tool-calling result files can now be shared directly from the batch UI, and the export naming scheme was simplified to `{source_tsv}_{TestType}_{model_name}_results.tsv` plus `{source_tsv}_{TestType}_{model_name}_summary.json` while keeping the files under app-internal storage.
 - 2026-03-19: Phase 8 follow-up applied. Failed parse or evaluation rows are now excluded from batch runtime aggregates, generation is capped at 200 tokens to avoid runaway malformed outputs, and the batch UI now offers a delete action that removes saved result files and resets progress so the next run resumes from a clean state.
+- 2026-03-22: Phase 8 stability follow-up added. Batch `Stop` crash investigation is now split into a shared cancellation-safety spec plus an implementation task so Toolcalling, RMA, and E2E can stop long-running runs without racing native unload or reload.
+- 2026-03-22: Task 55 completed. Batch stop and cancel handling is now frozen around a single safety contract: `Stop` enters a normal stopping state, no new row work begins, in-flight generation must fully exit before unload or reload, cleanup must be idempotent, and Toolcalling, RMA, and E2E all follow the same ordering rules.
+- 2026-03-22: Task 56 completed. Toolcalling, RMA, and E2E now stop batch runs through a shared safe-cancel path that waits for in-flight generation to exit before cleanup, treats cancellation as a normal stopped state, and confines unload or restore work to non-cancellable final cleanup so pressing `Stop` no longer races native unload against active inference.
+- 2026-03-22: Bundled `tc.tsv` is now shipped as an app asset and copied into app storage as the default gold TSV when no valid user-selected TSV is configured, so Toolcalling, RMA, and E2E can start from a known baseline dataset without manual import.
+- 2026-03-22: Shared export-actions follow-up added. RMA should reuse the same batch export, share, resume-state, and delete-results UI used by Toolcalling, while keeping rewrite-specific evaluator summaries separate from tool-calling summary content.
+- 2026-03-22: Task 57 completed. The docs now freeze `RMA` around the same batch export-actions contract as `Toolcalling`, explicitly sharing result or summary sharing, delete-results controls, file-path or flush state, and resumed-run messaging while keeping rewrite-specific evaluator summaries separate.

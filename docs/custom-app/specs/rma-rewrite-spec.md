@@ -46,6 +46,7 @@ The app should add a separate RMA evaluation activity or screen flow under the t
 
 - reuse common model-loading, batch-running, and metrics UI where practical
 - reuse the same runtime-metrics presentation used by Toolcalling
+- reuse the same batch export-actions UI used by Toolcalling
 - do not mix RMA evaluation into the existing tool-calling evaluation screen
 - do not mix RMA evaluation into the future E2E evaluator flow either
 

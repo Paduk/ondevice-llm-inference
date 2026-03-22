@@ -188,6 +188,15 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-54-shared-runtime-metrics-component.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-54-shared-runtime-metrics-component.md)
   Extract or reuse one shared runtime-metrics component for Toolcalling and RMA.
 
+- [task-55-batch-stop-safety-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-55-batch-stop-safety-spec.md)
+  Freeze one stop-or-cancel safety contract for Toolcalling, RMA, and E2E batch execution.
+
+- [task-56-batch-stop-crash-fix.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-56-batch-stop-crash-fix.md)
+  Fix the crash path caused by stopping a batch run while generation and native teardown are still overlapping.
+
+- [task-57-shared-rma-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-57-shared-rma-export-spec.md)
+  Freeze the rule that RMA reuses the same batch export-actions UI already used by Toolcalling.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
@@ -237,6 +246,12 @@ Use this map first, then open only the task/spec files needed for the current im
 
 - [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
   Top-level `Toolcalling`, `RMA`, and `E2E` routing plus conditional model or pipeline selection.
+
+- [batch-stop-safety-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-stop-safety-spec.md)
+  Shared cancellation, teardown, and state-restoration rules for stopping long-running batch runs safely.
+
+- [shared-batch-export-ui-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/shared-batch-export-ui-spec.md)
+  Shared export-actions UI rules for Toolcalling and RMA while keeping evaluator summaries separate.
 
 - [e2e-evaluator-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/e2e-evaluator-spec.md)
   The two-stage E2E flow, same-family pipeline rule, and final-only evaluation rule.

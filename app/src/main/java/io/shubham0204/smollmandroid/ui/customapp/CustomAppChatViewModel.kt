@@ -15,8 +15,10 @@ import io.shubham0204.smollmandroid.data.PersistedBatchCaseResult
 import io.shubham0204.smollmandroid.data.PersistedBatchSummary
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -105,6 +107,7 @@ data class CustomAppChatUiState(
     val renderedToolsCandidateCount: Int = 0,
     val renderedToolsCount: Int = 0,
     val isBatchRunning: Boolean = false,
+    val isBatchStopping: Boolean = false,
     val batchTotalCount: Int = 0,
     val batchCompletedCount: Int = 0,
     val batchFailedCount: Int = 0,
@@ -198,7 +201,8 @@ class CustomAppChatViewModel(
             query.isBlank() ||
                 !currentState.isModelReady ||
                 currentState.isGenerating ||
-                currentState.isBatchRunning
+                currentState.isBatchRunning ||
+                currentState.isBatchStopping
         ) {
             return
         }
@@ -424,6 +428,7 @@ class CustomAppChatViewModel(
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
+                        isBatchStopping = false,
                         isGenerating = false,
                         batchConversationMessages = emptyList(),
                         prefillSpeedTokensPerSec = null,
@@ -467,6 +472,7 @@ class CustomAppChatViewModel(
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
+                            isBatchStopping = false,
                             batchStatusMessage = "Batch run already complete.",
                             statusMessage = "Batch run already complete.",
                         )
@@ -679,50 +685,92 @@ class CustomAppChatViewModel(
                             batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
+                } catch (cancelled: CancellationException) {
+                    withContext(NonCancellable) {
+                        flushBatchExport(
+                            exportSession = exportSession,
+                            rows = persistedResults,
+                            sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                            sourceTsvRowCount = currentState.goldRecords.size,
+                            selectedRowCount = selectedRows.size,
+                            batchMode = currentState.selectedBatchRunMode,
+                            promptTemplate = originalChat.systemPrompt,
+                            macroAccuracy = _uiState.value.macroAccuracy,
+                            failedRows = persistedResults.count { it.status != "success" },
+                            runCreatedAt = runCreatedAt,
+                            isResumed = resumeCandidate != null,
+                            resumeSkippedRows = resumedRows.size,
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            batchStatusMessage = "Batch run stopped.",
+                            statusMessage = "Batch run stopped.",
+                            errorMessage = null,
+                            batchLastFlushCompletedCount = persistedResults.size,
+                            isBatchStopping = false,
+                        )
+                    }
                 } catch (error: Exception) {
-                    flushBatchExport(
-                        exportSession = exportSession,
-                        rows = persistedResults,
-                        sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
-                        sourceTsvRowCount = currentState.goldRecords.size,
-                        selectedRowCount = selectedRows.size,
-                        batchMode = currentState.selectedBatchRunMode,
-                        promptTemplate = originalChat.systemPrompt,
-                        macroAccuracy = _uiState.value.macroAccuracy,
-                        failedRows = persistedResults.count { it.status != "success" },
-                        runCreatedAt = runCreatedAt,
-                        isResumed = resumeCandidate != null,
-                        resumeSkippedRows = resumedRows.size,
-                    )
+                    withContext(NonCancellable) {
+                        flushBatchExport(
+                            exportSession = exportSession,
+                            rows = persistedResults,
+                            sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                            sourceTsvRowCount = currentState.goldRecords.size,
+                            selectedRowCount = selectedRows.size,
+                            batchMode = currentState.selectedBatchRunMode,
+                            promptTemplate = originalChat.systemPrompt,
+                            macroAccuracy = _uiState.value.macroAccuracy,
+                            failedRows = persistedResults.count { it.status != "success" },
+                            runCreatedAt = runCreatedAt,
+                            isResumed = resumeCandidate != null,
+                            resumeSkippedRows = resumedRows.size,
+                        )
+                    }
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
                             batchStatusMessage = null,
                             errorMessage = error.message ?: "Batch run failed.",
                             batchLastFlushCompletedCount = persistedResults.size,
+                            isBatchStopping = false,
                         )
                     }
                 } finally {
-                    tempChat?.let {
-                        appDB.deleteMessages(it.id)
-                        appDB.deleteChat(it)
+                    withContext(NonCancellable) {
+                        tempChat?.let {
+                            appDB.deleteMessages(it.id)
+                            appDB.deleteChat(it)
+                        }
+                        smolLMManager.unloadSafely()
+                        loadModel(originalChat)
+                        batchRunJob = null
+                        _uiState.update {
+                            it.copy(
+                                isBatchStopping = false,
+                                isBatchRunning = false,
+                            )
+                        }
                     }
-                    smolLMManager.unload()
-                    loadModel(originalChat)
                 }
             }
     }
 
     fun stopBatchRun() {
-        batchRunJob?.cancel()
-        batchRunJob = null
-        smolLMManager.stopResponseGeneration()
         _uiState.update {
             it.copy(
-                isBatchRunning = false,
-                batchStatusMessage = "Batch run stopped.",
-                statusMessage = "Batch run stopped.",
+                isBatchStopping = true,
+                batchStatusMessage = "Stopping batch run...",
+                statusMessage = null,
+                errorMessage = null,
             )
+        }
+        viewModelScope.launch(Dispatchers.Main) {
+            smolLMManager.stopResponseGenerationAndWait()
+            batchRunJob?.cancelAndJoin()
+            batchRunJob = null
         }
     }
 

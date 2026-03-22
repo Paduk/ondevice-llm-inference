@@ -24,6 +24,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
@@ -143,6 +144,51 @@ class SmolLMManager(private val appDB: AppDB) {
         }
     }
 
+    suspend fun stopResponseGenerationAndWait() {
+        val jobToCancel =
+            stateLock.withLock {
+                isInferenceOn = false
+                responseGenerationJob?.also { it.cancel() }
+            }
+        jobToCancel.safeCancelAndJoin()
+        stateLock.withLock {
+            if (responseGenerationJob === jobToCancel || responseGenerationJob?.isCompleted == true) {
+                responseGenerationJob = null
+            }
+            isInferenceOn = false
+        }
+    }
+
+    suspend fun unloadSafely() {
+        val responseJobToCancel: Job?
+        val modelInitJobToCancel: Job?
+        stateLock.withLock {
+            responseJobToCancel = responseGenerationJob?.also { it.cancel() }
+            modelInitJobToCancel = modelInitJob?.also { it.cancel() }
+            isInferenceOn = false
+        }
+        responseJobToCancel.safeCancelAndJoin()
+        modelInitJobToCancel.safeCancelAndJoin()
+        stateLock.withLock {
+            if (
+                responseGenerationJob === responseJobToCancel ||
+                    responseGenerationJob?.isCompleted == true
+            ) {
+                responseGenerationJob = null
+            }
+            if (modelInitJob === modelInitJobToCancel || modelInitJob?.isCompleted == true) {
+                modelInitJob = null
+            }
+            isInstanceLoaded.set(false)
+            chat = null
+            try {
+                instance.close()
+            } catch (e: Exception) {
+                LOGD("Error closing instance safely: ${e.message}")
+            }
+        }
+    }
+
     fun resetLoadedState(systemPrompt: String = "") {
         stateLock.withLock {
             if (!isInstanceLoaded.get()) {
@@ -222,6 +268,12 @@ class SmolLMManager(private val appDB: AppDB) {
                     withContext(Dispatchers.Main) {
                         onError(e)
                     }
+                } finally {
+                    stateLock.withLock {
+                        if (responseGenerationJob?.isCompleted == true) {
+                            responseGenerationJob = null
+                        }
+                    }
                 }
             }
         }
@@ -284,6 +336,12 @@ class SmolLMManager(private val appDB: AppDB) {
                     withContext(Dispatchers.Main) {
                         onError(e)
                     }
+                } finally {
+                    stateLock.withLock {
+                        if (responseGenerationJob?.isCompleted == true) {
+                            responseGenerationJob = null
+                        }
+                    }
                 }
             }
         }
@@ -317,5 +375,13 @@ class SmolLMManager(private val appDB: AppDB) {
 
     private fun Job?.safeCancelJobIfActive() {
         this?.cancel()
+    }
+
+    private suspend fun Job?.safeCancelAndJoin() {
+        if (this == null) return
+        try {
+            cancelAndJoin()
+        } catch (_: CancellationException) {
+        }
     }
 }

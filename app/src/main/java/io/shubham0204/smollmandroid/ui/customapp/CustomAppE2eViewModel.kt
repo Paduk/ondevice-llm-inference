@@ -10,8 +10,11 @@ import io.shubham0204.smollmandroid.data.ChatMessage
 import io.shubham0204.smollmandroid.data.LLMModel
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -88,6 +91,7 @@ data class CustomAppE2eUiState(
     val batchConversationMessages: List<ChatMessage> = emptyList(),
     val partialResponse: String = "",
     val isBatchRunning: Boolean = false,
+    val isBatchStopping: Boolean = false,
     val batchTotalCount: Int = 0,
     val batchCompletedCount: Int = 0,
     val batchFailedCount: Int = 0,
@@ -197,6 +201,7 @@ class CustomAppE2eViewModel(
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
+                        isBatchStopping = false,
                         batchConversationMessages = emptyList(),
                         partialResponse = "",
                         batchTotalCount = selectedRows.size,
@@ -328,39 +333,61 @@ class CustomAppE2eViewModel(
                             statusMessage = "E2E batch run finished.",
                         )
                     }
+                } catch (_: CancellationException) {
+                    _uiState.update {
+                        it.copy(
+                            isBatchRunning = false,
+                            isBatchStopping = false,
+                            batchStatusMessage = "E2E batch run stopped.",
+                            statusMessage = "E2E batch run stopped.",
+                            errorMessage = null,
+                        )
+                    }
                 } catch (error: Exception) {
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
+                            isBatchStopping = false,
                             batchStatusMessage = null,
                             errorMessage = error.message ?: "E2E batch run failed.",
                         )
                     }
                 } finally {
-                    smolLMManager.unload()
-                    rmaChat?.let {
-                        appDB.deleteMessages(it.id)
-                        appDB.deleteChat(it)
-                    }
-                    toolChat?.let {
-                        appDB.deleteMessages(it.id)
-                        appDB.deleteChat(it)
+                    withContext(NonCancellable) {
+                        smolLMManager.unloadSafely()
+                        rmaChat?.let {
+                            appDB.deleteMessages(it.id)
+                            appDB.deleteChat(it)
+                        }
+                        toolChat?.let {
+                            appDB.deleteMessages(it.id)
+                            appDB.deleteChat(it)
+                        }
+                        batchRunJob = null
+                        _uiState.update {
+                            it.copy(
+                                isBatchRunning = false,
+                                isBatchStopping = false,
+                            )
+                        }
                     }
                 }
             }
     }
 
     fun stopBatchRun() {
-        batchRunJob?.cancel()
-        batchRunJob = null
-        smolLMManager.stopResponseGeneration()
-        smolLMManager.unload()
         _uiState.update {
             it.copy(
-                isBatchRunning = false,
-                batchStatusMessage = "E2E batch run stopped.",
-                statusMessage = "E2E batch run stopped.",
+                isBatchStopping = true,
+                batchStatusMessage = "Stopping E2E batch run...",
+                statusMessage = null,
+                errorMessage = null,
             )
+        }
+        viewModelScope.launch(Dispatchers.Main) {
+            smolLMManager.stopResponseGenerationAndWait()
+            batchRunJob?.cancelAndJoin()
+            batchRunJob = null
         }
     }
 
