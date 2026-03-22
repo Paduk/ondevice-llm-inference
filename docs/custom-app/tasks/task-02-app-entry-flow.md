@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the current launcher behavior with the new compact custom app flow.
+Replace the current launcher behavior with the new RMA Ondevice Inference App flow.
 
 ## Likely Files
 
@@ -19,4 +19,3 @@ Replace the current launcher behavior with the new compact custom app flow.
 ## Completion Criteria
 
 - app launches into the new custom flow
-

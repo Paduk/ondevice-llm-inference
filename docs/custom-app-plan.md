@@ -1,10 +1,10 @@
-# Custom App Plan
+# RMA Ondevice Inference App Plan
 
 This file now serves as a compatibility pointer to the split documentation set.
 
 Start here:
 
-- [Custom App Docs Map](custom-app/README.md)
+- [RMA Ondevice Inference App Docs Map](custom-app/README.md)
 
 Primary files:
 

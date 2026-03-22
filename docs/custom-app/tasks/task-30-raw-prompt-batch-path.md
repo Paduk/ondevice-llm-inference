@@ -13,7 +13,6 @@ Add or define a batch execution path that sends a fully rendered prompt without 
 ## Required Reads
 
 - [inference-parity-spec.md](../specs/inference-parity-spec.md)
-- [python-vs-apk-inference-gap-ko.md](../python-vs-apk-inference-gap-ko.md)
 
 ## Likely Files
 

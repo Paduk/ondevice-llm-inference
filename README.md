@@ -16,9 +16,9 @@ The current app supports:
 
 ## Start Here
 
-If you are working on the current custom app, use these docs first:
+If you are working on the current RMA Ondevice Inference App, use these docs first:
 
-1. [Custom App Docs Map](docs/custom-app/README.md)
+1. [RMA Ondevice Inference App Docs Map](docs/custom-app/README.md)
 2. [Roadmap](docs/custom-app/roadmap.md)
 
 ## Current Focus
@@ -38,7 +38,6 @@ That file contains:
 ## Key Docs
 
 - [Architecture](docs/custom-app/architecture.md)
-- [Task 1-8 Summary (KO)](docs/custom-app/task-1-8-summary-ko.md)
 - [Batch Result Export Spec](docs/custom-app/specs/batch-result-export-spec.md)
 - [Runtime Metrics Spec](docs/custom-app/specs/runtime-metrics-spec.md)
 - [RMA Rewrite Spec](docs/custom-app/specs/rma-rewrite-spec.md)
@@ -51,4 +50,4 @@ That file contains:
 
 ## Upstream Base
 
-This project is based on the original `SmolChat-Android` codebase, but the active development workflow is centered on the custom app docs above rather than the original upstream README structure.
+This project is based on the original `SmolChat-Android` codebase, but the active development workflow is centered on the RMA Ondevice Inference App docs above rather than the original upstream README structure.

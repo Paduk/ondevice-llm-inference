@@ -18,5 +18,4 @@ Reduce confusion and maintenance cost after the compact flow works.
 
 ## Completion Criteria
 
-- the main user journey only exposes compact custom app features
-
+- the main user journey only exposes RMA Ondevice Inference App features

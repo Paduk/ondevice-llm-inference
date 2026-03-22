@@ -1,4 +1,4 @@
-# Custom App Roadmap
+# RMA Ondevice Inference App Roadmap
 
 ## Status
 
@@ -246,12 +246,12 @@ When an agent completes a task, update:
 
 ## Change Log
 
-- 2026-03-16: Initial custom app plan created.
+- 2026-03-16: Initial RMA Ondevice Inference App plan created.
 - 2026-03-16: Scope refined to remove ASR and keep multi-turn chat with prior assistant output reused through conversation history.
 - 2026-03-16: Documentation split into `docs/custom-app/` so future agents can read only the map, task, and spec files needed for a focused implementation step.
 - 2026-03-16: Task 1 completed. MVP assumptions frozen: JSON requires `sample_id` and `prediction`, TSV requires `sample_id` and `gold_label`, gold TSV is user-imported, and one active chat session is sufficient for MVP.
 - 2026-03-16: MVP schema revised. JSON now requires `query`, `rewrited_query`, `generated`, and `answer`. TSV now requires `conversation_history`, `query`, `rewrited_query`, `answer`, `unique_idx`, and `candidates`.
-- 2026-03-16: Task 2 completed. `MainActivity` now launches a compact custom app flow directly, with placeholder `Setup` and `Chat And Evaluate` screens replacing the legacy startup redirect to `DownloadModelActivity` or `ChatActivity`.
+- 2026-03-16: Task 2 completed. `MainActivity` now launches the RMA Ondevice Inference App flow directly, with placeholder `Setup` and `Chat And Evaluate` screens replacing the legacy startup redirect to `DownloadModelActivity` or `ChatActivity`.
 - 2026-03-16: Task 3 completed. The new compact `Setup` screen now supports local GGUF import, model selection, system prompt editing, inference parameter editing, and TSV gold-file import, with setup state persisted for the next screen.
 - 2026-03-16: Task 4 completed. The compact chat screen now loads the selected model, persists user and assistant messages, supports multi-turn inference through chat history replay, and provides a reset action to clear the conversation and reload the model.
 - 2026-03-16: Task 5 completed. The compact chat screen now displays generation speed, generation time, and prompt/context length after each response.
@@ -259,7 +259,7 @@ When an agent completes a task, update:
 - 2026-03-16: Task 7 completed. A strict TSV loader now validates required columns, unique `unique_idx` values, and non-empty answers, and the compact chat screen reports TSV load status and loaded record count.
 - 2026-03-16: Task 8 completed. Parsed model output is now matched against TSV gold data by `query` and `rewrited_query`, with per-turn correctness and cumulative Macro Accuracy shown in the compact chat screen.
 - 2026-03-16: Task 9 completed. The manifest now exposes only `MainActivity` as the user-facing app path, and legacy ASR, task-management, model-download, and share-text chat activity registrations have been removed from the main flow.
-- 2026-03-16: Task 10 completed. The custom app cleanup pass removed legacy audio permission usage from the manifest, deleted obsolete Android instrumentation tests tied to old flows, and trimmed test-only dependency footprint while keeping the current compact app build stable.
+- 2026-03-16: Task 10 completed. The RMA Ondevice Inference App cleanup pass removed legacy audio permission usage from the manifest, deleted obsolete Android instrumentation tests tied to old flows, and trimmed test-only dependency footprint while keeping the current app build stable.
 - 2026-03-16: Phase 2 planning added. Prompt presets, placeholder-based prompt rendering, and TSV-driven batch testing are now split into Tasks 11 through 16 with dedicated spec files.
 - 2026-03-16: Task 11 completed. Prompt preset assumptions are now frozen with explicit preset keys, `Custom` fallback behavior, overwrite rules for setup, and persistence rules for preset selection plus editable prompt text.
 - 2026-03-16: Task 12 completed. The setup screen now exposes `Custom`, `Model A`, `Model B`, and `Model C` prompt preset choices, applies preset templates directly into the editable system prompt field, and persists the selected preset key with the current prompt text.
@@ -284,7 +284,7 @@ When an agent completes a task, update:
 - 2026-03-17: Task 27 completed. The batch runner now loads the batch model once, resets loaded state between rows instead of unloading and reloading, and relies on the batch job cleanup path to restore the interactive chat session after completion or cancellation.
 - 2026-03-18: Phase 5 planning added. Python-vs-APK quality gaps are now split into parity tasks covering model identity, sampling defaults, raw-prompt execution, and JSON or generation-length alignment.
 - 2026-03-18: Task 28 completed. The minimum checklist for meaningful Python-vs-APK quality comparison is now frozen, covering model identity, rendered prompt parity, tools rendering parity, sampling alignment, generation-length alignment, JSON-only expectations, and chat-template handling.
-- 2026-03-18: Task 29 completed. The custom app default temperature is now aligned to `0.0` for parity testing, while the remaining min-p and generation-length gaps are explicitly documented for later follow-up.
+- 2026-03-18: Task 29 completed. The RMA Ondevice Inference App default temperature is now aligned to `0.0` for parity testing, while the remaining min-p and generation-length gaps are explicitly documented for later follow-up.
 - 2026-03-18: Task 30 completed. A raw-prompt execution path is now available in the native, Kotlin, and manager layers, and the batch runner uses that path so rendered prompts can be tested without extra chat-template wrapping.
 - 2026-03-18: Parser and batch-retention follow-up planning added. The next corrections split tolerant single-quote parsing and raw batch-output retention into Tasks 32 and 33 so usability gaps can be fixed without mixing parser and UI state changes.
 - 2026-03-18: Task 32 completed. The model-output parser still prefers strict JSON first, but now falls back to a tolerant quoted-object parser so Python-style single-quote outputs can be accepted when they still satisfy the required normalized schema.
@@ -296,7 +296,7 @@ When an agent completes a task, update:
 - 2026-03-18: Runtime-metrics follow-up planning added. The next work splits prefill and generation metrics in the native path, then exposes only core metrics by default while moving detailed per-case and batch aggregates behind an expandable section.
 - 2026-03-18: Task 37 completed. Runtime metrics are now frozen around separate prefill, generation, and total-time definitions, incremental batch totals and averages, and an inline expandable UI that keeps only core metrics always visible.
 - 2026-03-18: Task 38 completed. Native inference now exposes separate prefill and generation timing, prompt token count, generated token count, and prefill or generation speeds through JNI, Kotlin, and manager response objects so the UI layer can render split runtime metrics next.
-- 2026-03-18: Task 39 completed. The custom app now keeps only core runtime metrics always visible, moves detailed per-case and batch metrics behind an inline expandable section, and updates batch totals and averages incrementally as rows complete.
+- 2026-03-18: Task 39 completed. The RMA Ondevice Inference App now keeps only core runtime metrics always visible, moves detailed per-case and batch metrics behind an inline expandable section, and updates batch totals and averages incrementally as rows complete.
 - 2026-03-19: Phase 6 planning added. RMA rewrite evaluation will be split into a dedicated activity path so it can reuse common UI and runtime pieces without being forced through the current tool-calling parser and evaluator.
 - 2026-03-19: Prompt preset defaults were aligned with the external training prompts. New setup state now defaults to `Rewrite-Qwen3`, `Base-Qwen3` and `Base-Phi` now use history-style prompts with `conversation_history` plus `query`, and `Rewrite-Phi` now follows the rewrite-style prompt path with `rewrited_query`, matching the same placeholder direction already used by `Rewrite-Qwen3`.
 - 2026-03-19: Phase 7 planning added. The app will move to a top-level `Test Type` model with separate Toolcalling, RMA, and E2E evaluator routes, and the first E2E version will use only same-family pipelines while scoring only the final tool-call output.

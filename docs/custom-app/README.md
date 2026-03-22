@@ -1,8 +1,8 @@
-# Custom App Docs Map
+# RMA Ondevice Inference App Docs Map
 
 ## Purpose
 
-This directory is the document hub for the compact custom app built from `SmolChat-Android`.
+This directory is the document hub for the RMA Ondevice Inference App built from `SmolChat-Android`.
 
 Use the root [README.md](../../README.md) first, then use this map to open only the task/spec files needed for the current implementation step.
 

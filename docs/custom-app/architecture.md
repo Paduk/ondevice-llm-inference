@@ -1,4 +1,4 @@
-# Custom App Architecture
+# RMA Ondevice Inference App Architecture
 
 ## Product Direction
 
@@ -129,4 +129,3 @@ The app does not need a separate mechanism to inject the previous response manua
 - task-management files
 - folder-navigation files
 - HF browsing/downloading screens if no longer needed
-
