@@ -83,6 +83,15 @@
 - the app flushes batch result files every 10 completed rows
 - the app can resume from an existing result TSV by skipping already-evaluated `unique_idx` rows
 - the app shows export and resume state without overcrowding the evaluator screen
+- failed format or evaluation rows are excluded from batch runtime aggregates
+- generation is capped to avoid runaway output during malformed runs
+- the UI can delete saved batch result files so the next run starts fresh
+
+## Phase 8 Follow-up Acceptance Criteria
+
+- Toolcalling and RMA share the same runtime-metrics labels and layout
+- Toolcalling and RMA share the same details-toggle behavior
+- runtime metrics are reused as a shared inference UI component while evaluator summaries remain separate
 
 ## Execution Order
 
@@ -138,6 +147,8 @@
 50. [task-50-batch-result-writer.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-50-batch-result-writer.md)
 51. [task-51-batch-resume-loader.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-51-batch-resume-loader.md)
 52. [task-52-batch-export-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-52-batch-export-ui.md)
+53. [task-53-shared-runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-53-shared-runtime-metrics-spec.md)
+54. [task-54-shared-runtime-metrics-component.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-54-shared-runtime-metrics-component.md)
 
 ## Checklist
 
@@ -199,6 +210,11 @@
 - [x] Persist per-case batch results and summary output
 - [x] Resume batch evaluation from an existing result TSV
 - [x] Show export and resume status in the UI
+- [x] Exclude failed-format rows from batch performance aggregates
+- [x] Cap generation length at 200 tokens
+- [x] Allow saved batch result files to be deleted from the UI
+- [x] Freeze shared Toolcalling/RMA runtime-metrics contract
+- [x] Reuse one runtime-metrics component across Toolcalling and RMA
 
 ## Agent Update Rules
 
@@ -276,6 +292,10 @@ When an agent completes a task, update:
 - 2026-03-19: Phase 8 planning added. Long-running batch evaluation will move to persistent TSV export with `Top 1 / Top 50 / All` modes, periodic flush every 10 completed rows, per-case runtime metrics, and `unique_idx`-based resume support after interruption.
 - 2026-03-19: Task 49 completed. Persistent batch-export assumptions are now frozen around `Top 1 / Top 50 / All`, per-case TSV plus summary output, flush every 10 completed rows, `unique_idx`-based resume, and persisted throughput metrics including prefill, generation, and overall token-per-second fields.
 - 2026-03-19: Task 50 completed. Tool-calling batch runs now create a per-case result TSV plus a summary JSON file under app storage, persist generated outputs and correctness flags with runtime metrics, and flush the files every 10 completed rows as well as on batch completion or failure.
+- 2026-03-22: Runtime-metrics reuse follow-up added. Toolcalling and RMA will explicitly share the same runtime-metrics contract and UI component so inference instrumentation does not drift while evaluator-specific summary logic stays separate.
+- 2026-03-22: Task 53 completed. The docs now explicitly freeze Toolcalling and RMA around the same runtime-metrics labels, layout, and details-toggle behavior while keeping evaluator-specific summary sections separate.
+- 2026-03-22: Task 54 completed. Toolcalling and RMA now render runtime metrics through the same shared UI section with identical core labels, identical detailed metrics, and the same details-toggle behavior, while keeping their evaluator summaries separate.
 - 2026-03-19: Task 51 completed. Tool-calling batch runs now auto-detect the latest matching result TSV by source TSV name, batch mode, and prompt hash, preload prior rows by `unique_idx`, skip already-evaluated rows, restore aggregate metrics from saved results, and continue writing into the same result files as a resumed run.
 - 2026-03-19: Task 52 completed. The tool-calling batch UI now uses `Top 1 / Top 50 / All`, shows whether a run is fresh or resumed, exposes skipped-row count for resumed runs, and displays the current result file name plus the last flush count without dumping export internals into the main screen.
 - 2026-03-19: Phase 8 follow-up applied. Tool-calling result files can now be shared directly from the batch UI, and the export naming scheme was simplified to `{source_tsv}_{TestType}_{model_name}_results.tsv` plus `{source_tsv}_{TestType}_{model_name}_summary.json` while keeping the files under app-internal storage.
+- 2026-03-19: Phase 8 follow-up applied. Failed parse or evaluation rows are now excluded from batch runtime aggregates, generation is capped at 200 tokens to avoid runaway malformed outputs, and the batch UI now offers a delete action that removes saved result files and resets progress so the next run resumes from a clean state.

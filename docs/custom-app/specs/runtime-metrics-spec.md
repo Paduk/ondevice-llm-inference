@@ -34,6 +34,7 @@ Optional if easily available:
 - keep the metrics section readable during normal chat and batch runs
 - avoid exposing all runtime metrics as always-visible rows
 - prefer an inline expandable details pattern over a popup or modal by default
+- Toolcalling and RMA should use the same runtime-metrics UI structure and labels
 
 ## Frozen Batch Policy
 
@@ -87,3 +88,11 @@ Preferred approach:
 Avoid making detailed metrics permanently visible in the main flow.
 
 Popup or modal UI is allowed, but inline expand or collapse is preferred because this screen is used repeatedly during testing.
+
+## Shared-Component Direction
+
+Runtime metrics should be treated as shared inference instrumentation rather than evaluator-specific UI.
+
+- Toolcalling and RMA should reuse the same runtime-metrics component or helper
+- evaluator-specific sections may differ
+- metric labels, ordering, and details-toggle behavior should not drift between Toolcalling and RMA

@@ -123,7 +123,7 @@ private fun SetupPlaceholderScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Custom App Setup") })
+            TopAppBar(title = { Text("Ondevice LLM Inference") })
         }
     ) { paddingValues ->
         Column(
@@ -586,6 +586,7 @@ private fun RmaEvaluatePlaceholderScreen(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showMetricDetails by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -626,22 +627,21 @@ private fun RmaEvaluatePlaceholderScreen(
                 )
             }
 
-            SectionCard(title = "Runtime Metrics") {
-                MetricRow(
-                    label = "Total time",
-                    value = uiState.totalTimeMs?.let { formatMillis(it) } ?: "N/A",
-                )
-                MetricRow(
-                    label = "Generation speed",
-                    value =
-                        uiState.generationSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
-                            ?: "N/A",
-                )
-                MetricRow(
-                    label = "Prompt length",
-                    value = uiState.promptTokenCount?.toString() ?: "N/A",
-                )
-            }
+            SharedRuntimeMetricsSection(
+                metrics =
+                    SharedRuntimeMetricsState(
+                        totalTimeMs = uiState.totalTimeMs,
+                        generationSpeedTokensPerSec = uiState.generationSpeedTokensPerSec,
+                        promptTokenCount = uiState.promptTokenCount,
+                        prefillTimeMs = uiState.prefillTimeMs,
+                        generationTimeMs = uiState.generationTimeMs,
+                        generatedTokenCount = uiState.generatedTokenCount,
+                        prefillSpeedTokensPerSec = uiState.prefillSpeedTokensPerSec,
+                        contextLengthUsed = uiState.contextLengthUsed,
+                    ),
+                showMetricDetails = showMetricDetails,
+                onToggleMetricDetails = { showMetricDetails = !showMetricDetails },
+            )
 
             SectionCard(title = "Gold TSV") {
                 MetricRow(
@@ -776,13 +776,66 @@ private fun RmaEvaluatePlaceholderScreen(
                     value = uiState.batchSuccessRate?.let { "${"%.2f".format(it * 100)}%" } ?: "N/A",
                 )
                 MetricRow(
-                    label = "Batch avg generation",
-                    value = uiState.batchAverageGenerationTimeMs?.let { formatMillis(it) } ?: "N/A",
+                    label = "Evaluated samples",
+                    value = uiState.evaluationHistory.size.toString(),
                 )
                 MetricRow(
-                    label = "Batch avg prefill",
-                    value = uiState.batchAveragePrefillTimeMs?.let { formatMillis(it) } ?: "N/A",
+                    label = "Exact match accuracy",
+                    value = uiState.exactMatchAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
                 )
+                if (showMetricDetails) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                    MetricRow(
+                        label = "Batch total prefill",
+                        value = formatMillis(uiState.batchTotalPrefillTimeMs),
+                    )
+                    MetricRow(
+                        label = "Batch total generation",
+                        value = formatMillis(uiState.batchTotalGenerationTimeMs),
+                    )
+                    MetricRow(
+                        label = "Batch avg prefill",
+                        value = uiState.batchAveragePrefillTimeMs?.let { formatMillis(it) } ?: "N/A",
+                    )
+                    MetricRow(
+                        label = "Batch avg generation",
+                        value = uiState.batchAverageGenerationTimeMs?.let { formatMillis(it) } ?: "N/A",
+                    )
+                    MetricRow(
+                        label = "Batch avg gen speed",
+                        value =
+                            uiState.batchAverageGenerationSpeed?.let { "${"%.2f".format(it)} token/s" }
+                                ?: "N/A",
+                    )
+                    MetricRow(
+                        label = "Batch avg prefill speed",
+                        value =
+                            uiState.batchAveragePrefillSpeed?.let { "${"%.2f".format(it)} token/s" }
+                                ?: "N/A",
+                    )
+                    MetricRow(
+                        label = "Batch generated tokens",
+                        value = uiState.batchTotalGeneratedTokens.toString(),
+                    )
+                }
+                MetricRow(
+                    label = "Latest processed row",
+                    value = uiState.batchLatestUniqueIdx ?: "N/A",
+                )
+                uiState.batchStatusMessage?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                uiState.evaluationErrorMessage?.let {
+                    Text(
+                        text = "Latest evaluation issue: $it",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             SectionCard(title = "Conversation") {
@@ -892,52 +945,21 @@ private fun ChatEvaluatePlaceholderScreen(
                 }
             }
 
-            SectionCard(title = "Runtime Metrics") {
-                MetricRow(
-                    label = "Total time",
-                    value = uiState.totalTimeMs?.let { formatMillis(it) } ?: "N/A",
-                )
-                MetricRow(
-                    label = "Generation speed",
-                    value =
-                        uiState.generationSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
-                            ?: "N/A",
-                )
-                MetricRow(
-                    label = "Prompt length",
-                    value =
-                        uiState.promptTokenCount?.toString()
-                            ?: "N/A",
-                )
-                TextButton(onClick = { showMetricDetails = !showMetricDetails }) {
-                    Text(if (showMetricDetails) "Hide detailed metrics" else "Show detailed metrics")
-                }
-                if (showMetricDetails) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                    MetricRow(
-                        label = "Prefill time",
-                        value = uiState.prefillTimeMs?.let { formatMillis(it) } ?: "N/A",
-                    )
-                    MetricRow(
-                        label = "Generation time",
-                        value = uiState.generationTimeMs?.let { formatMillis(it) } ?: "N/A",
-                    )
-                    MetricRow(
-                        label = "Generated tokens",
-                        value = uiState.generatedTokenCount?.toString() ?: "N/A",
-                    )
-                    MetricRow(
-                        label = "Prefill speed",
-                        value =
-                            uiState.prefillSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
-                                ?: "N/A",
-                    )
-                    MetricRow(
-                        label = "Prompt/context length",
-                        value = uiState.contextLengthUsed?.toString() ?: "N/A",
-                    )
-                }
-            }
+            SharedRuntimeMetricsSection(
+                metrics =
+                    SharedRuntimeMetricsState(
+                        totalTimeMs = uiState.totalTimeMs,
+                        generationSpeedTokensPerSec = uiState.generationSpeedTokensPerSec,
+                        promptTokenCount = uiState.promptTokenCount,
+                        prefillTimeMs = uiState.prefillTimeMs,
+                        generationTimeMs = uiState.generationTimeMs,
+                        generatedTokenCount = uiState.generatedTokenCount,
+                        prefillSpeedTokensPerSec = uiState.prefillSpeedTokensPerSec,
+                        contextLengthUsed = uiState.contextLengthUsed,
+                    ),
+                showMetricDetails = showMetricDetails,
+                onToggleMetricDetails = { showMetricDetails = !showMetricDetails },
+            )
 
             SectionCard(title = "Parse Result") {
                 val parsedPrediction = uiState.parsedPrediction
@@ -1421,6 +1443,69 @@ private fun PromptPresetButton(
 }
 
 private fun formatMillis(value: Long): String = "${"%.3f".format(value / 1000f)} s"
+
+private data class SharedRuntimeMetricsState(
+    val totalTimeMs: Long?,
+    val generationSpeedTokensPerSec: Float?,
+    val promptTokenCount: Int?,
+    val prefillTimeMs: Long?,
+    val generationTimeMs: Long?,
+    val generatedTokenCount: Int?,
+    val prefillSpeedTokensPerSec: Float?,
+    val contextLengthUsed: Int?,
+)
+
+@Composable
+private fun SharedRuntimeMetricsSection(
+    metrics: SharedRuntimeMetricsState,
+    showMetricDetails: Boolean,
+    onToggleMetricDetails: () -> Unit,
+) {
+    SectionCard(title = "Runtime Metrics") {
+        MetricRow(
+            label = "Total time",
+            value = metrics.totalTimeMs?.let { formatMillis(it) } ?: "N/A",
+        )
+        MetricRow(
+            label = "Generation speed",
+            value =
+                metrics.generationSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
+                    ?: "N/A",
+        )
+        MetricRow(
+            label = "Prompt length",
+            value = metrics.promptTokenCount?.toString() ?: "N/A",
+        )
+        TextButton(onClick = onToggleMetricDetails) {
+            Text(if (showMetricDetails) "Hide detailed metrics" else "Show detailed metrics")
+        }
+        if (showMetricDetails) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            MetricRow(
+                label = "Prefill time",
+                value = metrics.prefillTimeMs?.let { formatMillis(it) } ?: "N/A",
+            )
+            MetricRow(
+                label = "Generation time",
+                value = metrics.generationTimeMs?.let { formatMillis(it) } ?: "N/A",
+            )
+            MetricRow(
+                label = "Generated tokens",
+                value = metrics.generatedTokenCount?.toString() ?: "N/A",
+            )
+            MetricRow(
+                label = "Prefill speed",
+                value =
+                    metrics.prefillSpeedTokensPerSec?.let { "${"%.2f".format(it)} token/s" }
+                        ?: "N/A",
+            )
+            MetricRow(
+                label = "Prompt/context length",
+                value = metrics.contextLengthUsed?.toString() ?: "N/A",
+            )
+        }
+    }
+}
 
 @Composable
 private fun SectionCard(title: String, content: @Composable () -> Unit) {

@@ -182,6 +182,12 @@ Use this map first, then open only the task/spec files needed for the current im
 - [task-52-batch-export-ui.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-52-batch-export-ui.md)
   Show export path, flush status, resume state, and the new batch-mode labels in the UI.
 
+- [task-53-shared-runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-53-shared-runtime-metrics-spec.md)
+  Freeze the rule that Toolcalling and RMA must share the same runtime-metrics UI contract.
+
+- [task-54-shared-runtime-metrics-component.md](/home/hj153lee/SmolChat-Android/docs/custom-app/tasks/task-54-shared-runtime-metrics-component.md)
+  Extract or reuse one shared runtime-metrics component for Toolcalling and RMA.
+
 ### Shared Specs
 
 - [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)

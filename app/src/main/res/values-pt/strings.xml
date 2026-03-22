@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">SmolChat</string>
+    <string name="app_name">RMAEvaluator</string>
     <string name="chat_select_model">Selecionar um modelo...</string>
     <string name="chat_loading_model">A carregar modelo...</string>
     <string name="chat_model_cannot_be_loaded">O modelo selecionado para o chat não pode ser carregado</string>
