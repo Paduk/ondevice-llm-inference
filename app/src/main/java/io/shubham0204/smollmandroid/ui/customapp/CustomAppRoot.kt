@@ -1144,6 +1144,17 @@ private fun ChatEvaluatePlaceholderScreen(
                         Text("Share Summary")
                     }
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = viewModel::deleteSavedBatchResults,
+                        enabled =
+                            !uiState.isBatchRunning &&
+                                !uiState.isGenerating &&
+                                (uiState.batchResultFilePath != null || uiState.batchSummaryFilePath != null),
+                    ) {
+                        Text("Delete Saved Results")
+                    }
+                }
                 MetricRow(
                     label = "Latest row",
                     value = uiState.batchLatestUniqueIdx ?: "N/A",

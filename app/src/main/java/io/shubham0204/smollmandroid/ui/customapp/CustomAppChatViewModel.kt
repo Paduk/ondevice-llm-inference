@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.annotation.KoinViewModel
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -112,6 +113,7 @@ data class CustomAppChatUiState(
     val batchTotalGeneratedTokens: Int = 0,
     val batchGenerationSpeedSum: Float = 0f,
     val batchPrefillSpeedSum: Float = 0f,
+    val batchMeasuredCount: Int = 0,
     val batchLatestUniqueIdx: String? = null,
     val batchStatusMessage: String? = null,
     val batchResultFilePath: String? = null,
@@ -146,16 +148,16 @@ data class CustomAppChatUiState(
             else batchSuccessCount.toFloat() / batchCompletedCount.toFloat()
 
     val batchAveragePrefillTimeMs: Long?
-        get() = if (batchCompletedCount <= 0) null else batchTotalPrefillTimeMs / batchCompletedCount
+        get() = if (batchMeasuredCount <= 0) null else batchTotalPrefillTimeMs / batchMeasuredCount
 
     val batchAverageGenerationTimeMs: Long?
-        get() = if (batchCompletedCount <= 0) null else batchTotalGenerationTimeMs / batchCompletedCount
+        get() = if (batchMeasuredCount <= 0) null else batchTotalGenerationTimeMs / batchMeasuredCount
 
     val batchAverageGenerationSpeed: Float?
-        get() = if (batchCompletedCount <= 0) null else batchGenerationSpeedSum / batchCompletedCount.toFloat()
+        get() = if (batchMeasuredCount <= 0) null else batchGenerationSpeedSum / batchMeasuredCount.toFloat()
 
     val batchAveragePrefillSpeed: Float?
-        get() = if (batchCompletedCount <= 0) null else batchPrefillSpeedSum / batchCompletedCount.toFloat()
+        get() = if (batchMeasuredCount <= 0) null else batchPrefillSpeedSum / batchMeasuredCount.toFloat()
 }
 
 @KoinViewModel
@@ -357,6 +359,7 @@ class CustomAppChatViewModel(
                 batchTotalGeneratedTokens = 0,
                 batchGenerationSpeedSum = 0f,
                 batchPrefillSpeedSum = 0f,
+                batchMeasuredCount = 0,
                 batchResultFilePath = null,
                 batchSummaryFilePath = null,
                 batchLastFlushCompletedCount = 0,
@@ -417,6 +420,7 @@ class CustomAppChatViewModel(
                 val resumedHistory = resumedRows.toEvaluationHistory()
                 val resumedMacroAccuracy = computeMacroAccuracy(resumedHistory)
                 val resumedFailedCount = resumedRows.count { it.status != "success" }
+                val resumedMeasuredRows = resumedRows.successOnly()
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
@@ -432,13 +436,14 @@ class CustomAppChatViewModel(
                         batchTotalCount = selectedRows.size,
                         batchCompletedCount = resumedRows.size,
                         batchFailedCount = resumedFailedCount,
-                        batchTotalPrefillTimeMs = resumedRows.sumOf { it.prefillTimeMs },
-                        batchTotalGenerationTimeMs = resumedRows.sumOf { it.generationTimeMs },
-                        batchTotalGeneratedTokens = resumedRows.sumOf { it.generatedTokens },
+                        batchTotalPrefillTimeMs = resumedMeasuredRows.sumOf { it.prefillTimeMs },
+                        batchTotalGenerationTimeMs = resumedMeasuredRows.sumOf { it.generationTimeMs },
+                        batchTotalGeneratedTokens = resumedMeasuredRows.sumOf { it.generatedTokens },
                         batchGenerationSpeedSum =
-                            resumedRows.sumOf { it.generationTokensPerSec.toDouble() }.toFloat(),
+                            resumedMeasuredRows.sumOf { it.generationTokensPerSec.toDouble() }.toFloat(),
                         batchPrefillSpeedSum =
-                            resumedRows.sumOf { it.prefillTokensPerSec.toDouble() }.toFloat(),
+                            resumedMeasuredRows.sumOf { it.prefillTokensPerSec.toDouble() }.toFloat(),
+                        batchMeasuredCount = resumedMeasuredRows.size,
                         batchLatestUniqueIdx = null,
                         batchResultFilePath = resumeCandidate?.session?.resultsFile?.absolutePath,
                         batchSummaryFilePath = resumeCandidate?.session?.summaryFile?.absolutePath,
@@ -540,6 +545,7 @@ class CustomAppChatViewModel(
                             } ?: currentUiState.evaluationHistory
                         val isFailed =
                             parseResult.isFailure || evaluationSummary.errorMessage != null
+                        val shouldMeasureMetrics = !isFailed
                         val latestResult = evaluationSummary.latestResult
                         persistedResults +=
                             PersistedBatchCaseResult(
@@ -604,15 +610,22 @@ class CustomAppChatViewModel(
                                     if (isFailed) currentUiState.batchFailedCount + 1
                                     else currentUiState.batchFailedCount,
                                 batchTotalPrefillTimeMs =
-                                    currentUiState.batchTotalPrefillTimeMs + response.prefillTimeMs,
+                                    currentUiState.batchTotalPrefillTimeMs +
+                                        if (shouldMeasureMetrics) response.prefillTimeMs else 0,
                                 batchTotalGenerationTimeMs =
-                                    currentUiState.batchTotalGenerationTimeMs + response.generationTimeMs,
+                                    currentUiState.batchTotalGenerationTimeMs +
+                                        if (shouldMeasureMetrics) response.generationTimeMs else 0,
                                 batchTotalGeneratedTokens =
-                                    currentUiState.batchTotalGeneratedTokens + response.generatedTokenCount,
+                                    currentUiState.batchTotalGeneratedTokens +
+                                        if (shouldMeasureMetrics) response.generatedTokenCount else 0,
                                 batchGenerationSpeedSum =
-                                    currentUiState.batchGenerationSpeedSum + response.generationSpeed,
+                                    currentUiState.batchGenerationSpeedSum +
+                                        if (shouldMeasureMetrics) response.generationSpeed else 0f,
                                 batchPrefillSpeedSum =
-                                    currentUiState.batchPrefillSpeedSum + response.prefillSpeed,
+                                    currentUiState.batchPrefillSpeedSum +
+                                        if (shouldMeasureMetrics) response.prefillSpeed else 0f,
+                                batchMeasuredCount =
+                                    currentUiState.batchMeasuredCount + if (shouldMeasureMetrics) 1 else 0,
                                 batchStatusMessage =
                                     "Completed ${persistedResults.size}/${selectedRows.size}: ${record.uniqueIdx}",
                             )
@@ -709,6 +722,68 @@ class CustomAppChatViewModel(
                 isBatchRunning = false,
                 batchStatusMessage = "Batch run stopped.",
                 statusMessage = "Batch run stopped.",
+            )
+        }
+    }
+
+    fun deleteSavedBatchResults() {
+        val currentState = _uiState.value
+        if (currentState.isBatchRunning || currentState.isGenerating) {
+            _uiState.update {
+                it.copy(errorMessage = "Stop the current run before deleting saved results.")
+            }
+            return
+        }
+
+        val resultDeleted = currentState.batchResultFilePath?.let { File(it).delete() } ?: false
+        val summaryDeleted = currentState.batchSummaryFilePath?.let { File(it).delete() } ?: false
+        if (!resultDeleted && !summaryDeleted) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = null,
+                    errorMessage = "No saved batch result files were found to delete.",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                batchConversationMessages = emptyList(),
+                generationSpeedTokensPerSec = null,
+                prefillSpeedTokensPerSec = null,
+                prefillTimeMs = null,
+                generationTimeMs = null,
+                totalTimeMs = null,
+                promptTokenCount = null,
+                generatedTokenCount = null,
+                generationTimeSecs = null,
+                contextLengthUsed = null,
+                parsedPrediction = null,
+                parseErrorMessage = null,
+                latestRawModelOutput = null,
+                batchTotalCount = 0,
+                batchCompletedCount = 0,
+                batchFailedCount = 0,
+                batchTotalPrefillTimeMs = 0,
+                batchTotalGenerationTimeMs = 0,
+                batchTotalGeneratedTokens = 0,
+                batchGenerationSpeedSum = 0f,
+                batchPrefillSpeedSum = 0f,
+                batchMeasuredCount = 0,
+                batchLatestUniqueIdx = null,
+                batchStatusMessage = null,
+                batchResultFilePath = null,
+                batchSummaryFilePath = null,
+                batchLastFlushCompletedCount = 0,
+                batchIsResumed = false,
+                batchResumeSkippedCount = 0,
+                evaluationHistory = emptyList(),
+                latestEvaluationResult = null,
+                macroAccuracy = null,
+                evaluationErrorMessage = null,
+                statusMessage = "Saved batch results deleted. The next run will start fresh.",
+                errorMessage = null,
             )
         }
     }
@@ -919,6 +994,7 @@ class CustomAppChatViewModel(
     ) {
         if (exportSession == null || rows.isEmpty()) return
         withContext(Dispatchers.IO) {
+            val measuredRows = rows.successOnly()
             batchResultExportStore.writeResults(
                 session = exportSession,
                 rows = rows,
@@ -935,12 +1011,12 @@ class CustomAppChatViewModel(
                         completedRows = rows.size,
                         failedRows = failedRows,
                         macroAccuracy = macroAccuracy,
-                        avgPrefillTokensPerSec = rows.map { it.prefillTokensPerSec }.averageOrNull(),
-                        avgGenerationTokensPerSec = rows.map { it.generationTokensPerSec }.averageOrNull(),
-                        avgOverallTokensPerSec = rows.map { it.overallTokensPerSec }.averageOrNull(),
-                        avgPrefillTimeMs = rows.map { it.prefillTimeMs }.averageLongOrNull(),
-                        avgGenerationTimeMs = rows.map { it.generationTimeMs }.averageLongOrNull(),
-                        avgTotalTimeMs = rows.map { it.totalTimeMs }.averageLongOrNull(),
+                        avgPrefillTokensPerSec = measuredRows.map { it.prefillTokensPerSec }.averageOrNull(),
+                        avgGenerationTokensPerSec = measuredRows.map { it.generationTokensPerSec }.averageOrNull(),
+                        avgOverallTokensPerSec = measuredRows.map { it.overallTokensPerSec }.averageOrNull(),
+                        avgPrefillTimeMs = measuredRows.map { it.prefillTimeMs }.averageLongOrNull(),
+                        avgGenerationTimeMs = measuredRows.map { it.generationTimeMs }.averageLongOrNull(),
+                        avgTotalTimeMs = measuredRows.map { it.totalTimeMs }.averageLongOrNull(),
                         createdAt = runCreatedAt,
                         updatedAt = nowIsoString(),
                     ),
@@ -1083,6 +1159,9 @@ private fun computeOverallTokensPerSec(
     if (totalTimeMs <= 0L) return 0f
     return ((promptTokens + generatedTokens).toFloat() / totalTimeMs.toFloat()) * 1000f
 }
+
+private fun List<PersistedBatchCaseResult>.successOnly(): List<PersistedBatchCaseResult> =
+    filter { it.status == "success" }
 
 private fun Iterable<Float>.averageOrNull(): Float? {
     val list = this.toList()

@@ -137,6 +137,7 @@ LLMInference::resetState() {
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
     _hasCompletedPrefill = false;
+    _hasReachedGenerationLimit = false;
     _nCtxUsed = 0;
 
     if (_batch != nullptr) {
@@ -159,6 +160,9 @@ LLMInference::startCompletion(const char *query) {
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
     _hasCompletedPrefill = false;
+    _hasReachedGenerationLimit = false;
+    _response.clear();
+    _cacheResponseTokens.clear();
     addChatMessage(query, "user");
     // apply the chat-template
     std::vector<common_chat_msg> messages;
@@ -188,6 +192,7 @@ LLMInference::startRawCompletion(const char *prompt) {
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
     _hasCompletedPrefill = false;
+    _hasReachedGenerationLimit = false;
     _response.clear();
     _cacheResponseTokens.clear();
 
@@ -242,6 +247,15 @@ LLMInference::_isValidUtf8(const char *response) {
 
 std::string
 LLMInference::completionLoop() {
+    if (_hasReachedGenerationLimit) {
+        if (_storeChats) {
+            addChatMessage(_response.c_str(), "assistant");
+        }
+        _response.clear();
+        _hasReachedGenerationLimit = false;
+        return "[EOG]";
+    }
+
     // check if the length of the inputs to the model
     // have exceeded the context size of the model
     uint32_t contextSize = llama_n_ctx(_ctx);
@@ -273,6 +287,9 @@ LLMInference::completionLoop() {
         _responseGenerationTime += (end - start);
     }
     _responseNumTokens += 1;
+    if (_responseNumTokens >= MAX_GENERATED_TOKENS) {
+        _hasReachedGenerationLimit = true;
+    }
     _cacheResponseTokens += piece;
 
     // re-init the batch with the newly predicted token

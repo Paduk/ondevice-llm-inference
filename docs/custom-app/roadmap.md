@@ -83,6 +83,9 @@
 - the app flushes batch result files every 10 completed rows
 - the app can resume from an existing result TSV by skipping already-evaluated `unique_idx` rows
 - the app shows export and resume state without overcrowding the evaluator screen
+- failed format or evaluation rows are excluded from batch runtime aggregates
+- generation is capped to avoid runaway output during malformed runs
+- the UI can delete saved batch result files so the next run starts fresh
 
 ## Execution Order
 
@@ -199,6 +202,9 @@
 - [x] Persist per-case batch results and summary output
 - [x] Resume batch evaluation from an existing result TSV
 - [x] Show export and resume status in the UI
+- [x] Exclude failed-format rows from batch performance aggregates
+- [x] Cap generation length at 200 tokens
+- [x] Allow saved batch result files to be deleted from the UI
 
 ## Agent Update Rules
 
@@ -279,3 +285,4 @@ When an agent completes a task, update:
 - 2026-03-19: Task 51 completed. Tool-calling batch runs now auto-detect the latest matching result TSV by source TSV name, batch mode, and prompt hash, preload prior rows by `unique_idx`, skip already-evaluated rows, restore aggregate metrics from saved results, and continue writing into the same result files as a resumed run.
 - 2026-03-19: Task 52 completed. The tool-calling batch UI now uses `Top 1 / Top 50 / All`, shows whether a run is fresh or resumed, exposes skipped-row count for resumed runs, and displays the current result file name plus the last flush count without dumping export internals into the main screen.
 - 2026-03-19: Phase 8 follow-up applied. Tool-calling result files can now be shared directly from the batch UI, and the export naming scheme was simplified to `{source_tsv}_{TestType}_{model_name}_results.tsv` plus `{source_tsv}_{TestType}_{model_name}_summary.json` while keeping the files under app-internal storage.
+- 2026-03-19: Phase 8 follow-up applied. Failed parse or evaluation rows are now excluded from batch runtime aggregates, generation is capped at 200 tokens to avoid runaway malformed outputs, and the batch UI now offers a delete action that removes saved result files and resets progress so the next run resumes from a clean state.

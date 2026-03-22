@@ -6,6 +6,8 @@
 #include <vector>
 
 class LLMInference {
+    static constexpr long MAX_GENERATED_TOKENS = 200;
+
     // llama.cpp-specific types
     llama_context* _ctx = nullptr;
     llama_model*   _model = nullptr;
@@ -36,6 +38,7 @@ class LLMInference {
     int64_t _responseGenerationTime = 0;
     long    _responseNumTokens      = 0;
     bool    _hasCompletedPrefill    = false;
+    bool    _hasReachedGenerationLimit = false;
 
     // length of context window consumed during the conversation
     int _nCtxUsed = 0;
