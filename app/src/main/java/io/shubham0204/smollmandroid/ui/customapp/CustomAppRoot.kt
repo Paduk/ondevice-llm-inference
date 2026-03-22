@@ -586,6 +586,7 @@ private fun RmaEvaluatePlaceholderScreen(
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var showMetricDetails by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
@@ -699,6 +700,18 @@ private fun RmaEvaluatePlaceholderScreen(
                 MetricRow(label = "Total rows", value = uiState.batchTotalCount.toString())
                 MetricRow(label = "Completed rows", value = uiState.batchCompletedCount.toString())
                 MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
+                SharedBatchExportActionsSection(
+                    context = context,
+                    exportState =
+                        SharedBatchExportUiState(
+                            batchResultFilePath = uiState.batchResultFilePath,
+                            batchSummaryFilePath = uiState.batchSummaryFilePath,
+                            batchLastFlushCompletedCount = uiState.batchLastFlushCompletedCount,
+                            batchIsResumed = uiState.batchIsResumed,
+                            isBatchRunning = uiState.isBatchRunning,
+                        ),
+                    onDeleteSavedResults = viewModel::deleteSavedBatchResults,
+                )
                 uiState.batchStatusMessage?.let {
                     Text(
                         text = it,
@@ -1111,72 +1124,20 @@ private fun ChatEvaluatePlaceholderScreen(
                 MetricRow(label = "Total rows", value = uiState.batchTotalCount.toString())
                 MetricRow(label = "Completed rows", value = uiState.batchCompletedCount.toString())
                 MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
-                MetricRow(
-                    label = "Run type",
-                    value = if (uiState.batchIsResumed) "Resumed" else "Fresh",
+                SharedBatchExportActionsSection(
+                    context = context,
+                    exportState =
+                        SharedBatchExportUiState(
+                            batchResultFilePath = uiState.batchResultFilePath,
+                            batchSummaryFilePath = uiState.batchSummaryFilePath,
+                            batchLastFlushCompletedCount = uiState.batchLastFlushCompletedCount,
+                            batchIsResumed = uiState.batchIsResumed,
+                            batchResumeSkippedCount = uiState.batchResumeSkippedCount,
+                            isBatchRunning = uiState.isBatchRunning,
+                            isGenerating = uiState.isGenerating,
+                        ),
+                    onDeleteSavedResults = viewModel::deleteSavedBatchResults,
                 )
-                if (uiState.batchIsResumed) {
-                    MetricRow(
-                        label = "Skipped rows",
-                        value = uiState.batchResumeSkippedCount.toString(),
-                    )
-                }
-                MetricRow(
-                    label = "Result file",
-                    value = uiState.batchResultFilePath?.substringAfterLast('/') ?: "N/A",
-                )
-                MetricRow(
-                    label = "Last flush",
-                    value =
-                        if (uiState.batchLastFlushCompletedCount > 0) {
-                            "${uiState.batchLastFlushCompletedCount} rows"
-                        } else {
-                            "Not saved yet"
-                        },
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            uiState.batchResultFilePath?.let {
-                                shareExportFile(
-                                    context = context,
-                                    path = it,
-                                    mimeType = "text/tab-separated-values",
-                                    chooserTitle = "Share batch results TSV",
-                                )
-                            }
-                        },
-                        enabled = uiState.batchResultFilePath != null,
-                    ) {
-                        Text("Share Results")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            uiState.batchSummaryFilePath?.let {
-                                shareExportFile(
-                                    context = context,
-                                    path = it,
-                                    mimeType = "application/json",
-                                    chooserTitle = "Share batch summary JSON",
-                                )
-                            }
-                        },
-                        enabled = uiState.batchSummaryFilePath != null,
-                    ) {
-                        Text("Share Summary")
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(
-                        onClick = viewModel::deleteSavedBatchResults,
-                        enabled =
-                            !uiState.isBatchRunning &&
-                                !uiState.isGenerating &&
-                                (uiState.batchResultFilePath != null || uiState.batchSummaryFilePath != null),
-                    ) {
-                        Text("Delete Saved Results")
-                    }
-                }
                 MetricRow(
                     label = "Latest row",
                     value = uiState.batchLatestUniqueIdx ?: "N/A",
@@ -1455,6 +1416,16 @@ private data class SharedRuntimeMetricsState(
     val contextLengthUsed: Int?,
 )
 
+private data class SharedBatchExportUiState(
+    val batchResultFilePath: String?,
+    val batchSummaryFilePath: String?,
+    val batchLastFlushCompletedCount: Int,
+    val batchIsResumed: Boolean,
+    val batchResumeSkippedCount: Int? = null,
+    val isBatchRunning: Boolean,
+    val isGenerating: Boolean = false,
+)
+
 @Composable
 private fun SharedRuntimeMetricsSection(
     metrics: SharedRuntimeMetricsState,
@@ -1503,6 +1474,80 @@ private fun SharedRuntimeMetricsSection(
                 label = "Prompt/context length",
                 value = metrics.contextLengthUsed?.toString() ?: "N/A",
             )
+        }
+    }
+}
+
+@Composable
+private fun SharedBatchExportActionsSection(
+    context: Context,
+    exportState: SharedBatchExportUiState,
+    onDeleteSavedResults: () -> Unit,
+) {
+    MetricRow(
+        label = "Run type",
+        value = if (exportState.batchIsResumed) "Resumed" else "Fresh",
+    )
+    exportState.batchResumeSkippedCount?.takeIf { exportState.batchIsResumed }?.let {
+        MetricRow(
+            label = "Skipped rows",
+            value = it.toString(),
+        )
+    }
+    MetricRow(
+        label = "Result file",
+        value = exportState.batchResultFilePath?.substringAfterLast('/') ?: "N/A",
+    )
+    MetricRow(
+        label = "Last flush",
+        value =
+            if (exportState.batchLastFlushCompletedCount > 0) {
+                "${exportState.batchLastFlushCompletedCount} rows"
+            } else {
+                "Not saved yet"
+            },
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedButton(
+            onClick = {
+                exportState.batchResultFilePath?.let {
+                    shareExportFile(
+                        context = context,
+                        path = it,
+                        mimeType = "text/tab-separated-values",
+                        chooserTitle = "Share batch results TSV",
+                    )
+                }
+            },
+            enabled = exportState.batchResultFilePath != null,
+        ) {
+            Text("Share Results")
+        }
+        OutlinedButton(
+            onClick = {
+                exportState.batchSummaryFilePath?.let {
+                    shareExportFile(
+                        context = context,
+                        path = it,
+                        mimeType = "application/json",
+                        chooserTitle = "Share batch summary JSON",
+                    )
+                }
+            },
+            enabled = exportState.batchSummaryFilePath != null,
+        ) {
+            Text("Share Summary")
+        }
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedButton(
+            onClick = onDeleteSavedResults,
+            enabled =
+                !exportState.isBatchRunning &&
+                    !exportState.isGenerating &&
+                    (exportState.batchResultFilePath != null || exportState.batchSummaryFilePath != null),
+        ) {
+            Text("Delete Saved Results")
         }
     }
 }

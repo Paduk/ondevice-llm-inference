@@ -4,7 +4,7 @@
 
 - Overall status: `in_progress`
 - Current phase: `Phase 8`
-- Current focus: `Task 57 shared RMA export spec`
+- Current focus: `Physical-device validation`
 
 ## MVP Acceptance Criteria
 
@@ -234,7 +234,7 @@
 - [x] Freeze batch stop/cancel safety contract across Toolcalling, RMA, and E2E
 - [x] Stop batch runs without crash and restore interactive state safely
 - [x] Bundle `tc.tsv` as the default gold TSV asset
-- [ ] Freeze shared Toolcalling/RMA batch export-actions contract
+- [x] Freeze shared Toolcalling/RMA batch export-actions contract
 
 ## Agent Update Rules
 
@@ -324,3 +324,5 @@ When an agent completes a task, update:
 - 2026-03-22: Task 56 completed. Toolcalling, RMA, and E2E now stop batch runs through a shared safe-cancel path that waits for in-flight generation to exit before cleanup, treats cancellation as a normal stopped state, and confines unload or restore work to non-cancellable final cleanup so pressing `Stop` no longer races native unload against active inference.
 - 2026-03-22: Bundled `tc.tsv` is now shipped as an app asset and copied into app storage as the default gold TSV when no valid user-selected TSV is configured, so Toolcalling, RMA, and E2E can start from a known baseline dataset without manual import.
 - 2026-03-22: Shared export-actions follow-up added. RMA should reuse the same batch export, share, resume-state, and delete-results UI used by Toolcalling, while keeping rewrite-specific evaluator summaries separate from tool-calling summary content.
+- 2026-03-22: Task 57 completed. The docs now freeze `RMA` around the same batch export-actions contract as `Toolcalling`, explicitly sharing result or summary sharing, delete-results controls, file-path or flush state, and resumed-run messaging while keeping rewrite-specific evaluator summaries separate.
+- 2026-03-22: Phase 8 export reuse applied. RMA batch runs now persist result TSV and summary JSON files, expose the same shared export-actions section used by Toolcalling, and support result sharing plus saved-result deletion without changing the rewrite-specific evaluator summary.

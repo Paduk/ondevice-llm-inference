@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.shubham0204.smollm.SmolLM
 import io.shubham0204.smollmandroid.data.AppDB
+import io.shubham0204.smollmandroid.data.BatchExportSession
+import io.shubham0204.smollmandroid.data.BatchResultExportStore
 import io.shubham0204.smollmandroid.data.Chat
 import io.shubham0204.smollmandroid.data.ChatMessage
 import io.shubham0204.smollmandroid.data.LLMModel
+import io.shubham0204.smollmandroid.data.PersistedBatchCaseResult
+import io.shubham0204.smollmandroid.data.PersistedBatchSummary
 import io.shubham0204.smollmandroid.data.SharedPrefStore
 import io.shubham0204.smollmandroid.llm.SmolLMManager
 import kotlinx.coroutines.CancellationException
@@ -21,6 +25,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.koin.android.annotation.KoinViewModel
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
@@ -63,6 +71,10 @@ data class CustomAppRmaUiState(
     val batchFailedCount: Int = 0,
     val batchLatestUniqueIdx: String? = null,
     val batchStatusMessage: String? = null,
+    val batchResultFilePath: String? = null,
+    val batchSummaryFilePath: String? = null,
+    val batchLastFlushCompletedCount: Int = 0,
+    val batchIsResumed: Boolean = false,
     val evaluationHistory: List<RmaEvaluationResult> = emptyList(),
     val latestEvaluationResult: RmaEvaluationResult? = null,
     val exactMatchAccuracy: Float? = null,
@@ -116,6 +128,7 @@ data class CustomAppRmaUiState(
 class CustomAppRmaViewModel(
     private val appDB: AppDB,
     private val sharedPrefStore: SharedPrefStore,
+    private val batchResultExportStore: BatchResultExportStore,
     private val smolLMManager: SmolLMManager,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CustomAppRmaUiState())
@@ -153,6 +166,9 @@ class CustomAppRmaViewModel(
         batchRunJob?.cancel()
         batchRunJob =
             viewModelScope.launch(Dispatchers.Main) {
+                var exportSession: BatchExportSession? = null
+                val persistedResults = mutableListOf<PersistedBatchCaseResult>()
+                val runCreatedAt = nowIsoString()
                 _uiState.update {
                     it.copy(
                         isBatchRunning = true,
@@ -164,6 +180,10 @@ class CustomAppRmaViewModel(
                         batchFailedCount = 0,
                         batchLatestUniqueIdx = null,
                         batchStatusMessage = "Starting RMA batch run...",
+                        batchResultFilePath = null,
+                        batchSummaryFilePath = null,
+                        batchLastFlushCompletedCount = 0,
+                        batchIsResumed = false,
                         evaluationHistory = emptyList(),
                         latestEvaluationResult = null,
                         exactMatchAccuracy = null,
@@ -189,8 +209,20 @@ class CustomAppRmaViewModel(
                 var tempChat: Chat? = null
                 try {
                     val promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "")
+                    exportSession =
+                        batchResultExportStore.createSession(
+                            sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                            testType = "RMA",
+                            modelName = selectedModel.name,
+                        )
                     tempChat = createBatchChat(selectedModel)
                     loadModelSuspend(tempChat, selectedModel.path)
+                    _uiState.update {
+                        it.copy(
+                            batchResultFilePath = exportSession.resultsFile.absolutePath,
+                            batchSummaryFilePath = exportSession.summaryFile.absolutePath,
+                        )
+                    }
 
                     selectedRows.forEachIndexed { index, record ->
                         val renderedPrompt = CustomAppRmaPromptRenderer.render(promptTemplate, record)
@@ -261,16 +293,95 @@ class CustomAppRmaViewModel(
                                     "Completed ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
                             )
                         }
+
+                        persistedResults +=
+                            PersistedBatchCaseResult(
+                                uniqueIdx = record.uniqueIdx,
+                                query = record.query,
+                                rewritedQuery = record.rewritedQuery,
+                                goldAnswer = record.rewritedQuery,
+                                generated = predicted,
+                                parseSuccess = true,
+                                planCorrect = result.isCorrect,
+                                argumentsCorrect = result.isCorrect,
+                                allCorrect = result.isCorrect,
+                                prefillTokensPerSec = response.prefillSpeed,
+                                generationTokensPerSec = response.generationSpeed,
+                                overallTokensPerSec =
+                                    computeOverallTokensPerSec(
+                                        promptTokens = response.promptTokenCount,
+                                        generatedTokens = response.generatedTokenCount,
+                                        totalTimeMs = response.totalTimeMs,
+                                    ),
+                                prefillTimeMs = response.prefillTimeMs,
+                                generationTimeMs = response.generationTimeMs,
+                                totalTimeMs = response.totalTimeMs,
+                                promptTokens = response.promptTokenCount,
+                                generatedTokens = response.generatedTokenCount,
+                                status = if (result.isCorrect) "success" else "evaluation_failed",
+                                errorMessage = if (result.isCorrect) "" else "Rewrite mismatch",
+                                evaluatedAt = nowIsoString(),
+                            )
+
+                        if (persistedResults.size % 10 == 0) {
+                            flushBatchExport(
+                                exportSession = exportSession,
+                                rows = persistedResults,
+                                sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                                sourceTsvRowCount = currentState.goldRecords.size,
+                                selectedRowCount = selectedRows.size,
+                                batchMode = currentState.selectedBatchRunMode,
+                                promptTemplate = promptTemplate,
+                                exactMatchAccuracy = accuracy,
+                                failedRows = persistedResults.count { it.status != "success" },
+                                runCreatedAt = runCreatedAt,
+                            )
+                            _uiState.update {
+                                it.copy(
+                                    batchLastFlushCompletedCount = persistedResults.size,
+                                    batchStatusMessage =
+                                        "Completed ${persistedResults.size}/${selectedRows.size}: ${record.uniqueIdx} (saved ${persistedResults.size})",
+                                )
+                            }
+                        }
                     }
+
+                    flushBatchExport(
+                        exportSession = exportSession,
+                        rows = persistedResults,
+                        sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                        sourceTsvRowCount = currentState.goldRecords.size,
+                        selectedRowCount = selectedRows.size,
+                        batchMode = currentState.selectedBatchRunMode,
+                        promptTemplate = promptTemplate,
+                        exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                        failedRows = persistedResults.count { it.status != "success" },
+                        runCreatedAt = runCreatedAt,
+                    )
 
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
                             batchStatusMessage = "RMA batch run finished.",
                             statusMessage = "RMA batch run finished.",
+                            batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
                 } catch (_: CancellationException) {
+                    withContext(NonCancellable) {
+                        flushBatchExport(
+                            exportSession = exportSession,
+                            rows = persistedResults,
+                            sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                            sourceTsvRowCount = currentState.goldRecords.size,
+                            selectedRowCount = selectedRows.size,
+                            batchMode = currentState.selectedBatchRunMode,
+                            promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, ""),
+                            exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                            failedRows = persistedResults.count { it.status != "success" },
+                            runCreatedAt = runCreatedAt,
+                        )
+                    }
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
@@ -278,15 +389,31 @@ class CustomAppRmaViewModel(
                             batchStatusMessage = "RMA batch run stopped.",
                             statusMessage = "RMA batch run stopped.",
                             errorMessage = null,
+                            batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
                 } catch (error: Exception) {
+                    withContext(NonCancellable) {
+                        flushBatchExport(
+                            exportSession = exportSession,
+                            rows = persistedResults,
+                            sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
+                            sourceTsvRowCount = currentState.goldRecords.size,
+                            selectedRowCount = selectedRows.size,
+                            batchMode = currentState.selectedBatchRunMode,
+                            promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, ""),
+                            exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                            failedRows = persistedResults.count { it.status != "success" },
+                            runCreatedAt = runCreatedAt,
+                        )
+                    }
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
                             isBatchStopping = false,
                             batchStatusMessage = null,
                             errorMessage = error.message ?: "RMA batch run failed.",
+                            batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
                 } finally {
@@ -321,6 +448,43 @@ class CustomAppRmaViewModel(
             smolLMManager.stopResponseGenerationAndWait()
             batchRunJob?.cancelAndJoin()
             batchRunJob = null
+        }
+    }
+
+    fun deleteSavedBatchResults() {
+        val currentState = _uiState.value
+        if (currentState.isBatchRunning) {
+            _uiState.update {
+                it.copy(errorMessage = "Stop the current run before deleting saved results.")
+            }
+            return
+        }
+
+        val resultDeleted = currentState.batchResultFilePath?.let { File(it).delete() } ?: false
+        val summaryDeleted = currentState.batchSummaryFilePath?.let { File(it).delete() } ?: false
+        if (!resultDeleted && !summaryDeleted) {
+            _uiState.update {
+                it.copy(
+                    statusMessage = null,
+                    errorMessage = "No saved batch result files were found to delete.",
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                batchConversationMessages = emptyList(),
+                batchResultFilePath = null,
+                batchSummaryFilePath = null,
+                batchLastFlushCompletedCount = 0,
+                batchIsResumed = false,
+                evaluationHistory = emptyList(),
+                latestEvaluationResult = null,
+                exactMatchAccuracy = null,
+                statusMessage = "Saved batch results deleted. The next run will start fresh.",
+                errorMessage = null,
+            )
         }
     }
 
@@ -453,4 +617,75 @@ class CustomAppRmaViewModel(
         withContext(Dispatchers.Default) {
             smolLMManager.resetLoadedState("")
         }
+
+    private suspend fun flushBatchExport(
+        exportSession: BatchExportSession?,
+        rows: List<PersistedBatchCaseResult>,
+        sourceTsvName: String,
+        sourceTsvRowCount: Int,
+        selectedRowCount: Int,
+        batchMode: String,
+        promptTemplate: String,
+        exactMatchAccuracy: Float?,
+        failedRows: Int,
+        runCreatedAt: String,
+    ) {
+        if (exportSession == null || rows.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            val measuredRows = rows.successOnly()
+            batchResultExportStore.writeResults(
+                session = exportSession,
+                rows = rows,
+                summary =
+                    PersistedBatchSummary(
+                        runId = exportSession.runId,
+                        sourceTsvName = sourceTsvName,
+                        sourceTsvRowCount = sourceTsvRowCount,
+                        selectedRowCount = selectedRowCount,
+                        batchMode = batchMode,
+                        promptHash = batchResultExportStore.hashPrompt(promptTemplate),
+                        isResumed = false,
+                        resumeSkippedRows = 0,
+                        completedRows = rows.size,
+                        failedRows = failedRows,
+                        macroAccuracy = exactMatchAccuracy,
+                        avgPrefillTokensPerSec = measuredRows.map { it.prefillTokensPerSec }.averageOrNull(),
+                        avgGenerationTokensPerSec = measuredRows.map { it.generationTokensPerSec }.averageOrNull(),
+                        avgOverallTokensPerSec = measuredRows.map { it.overallTokensPerSec }.averageOrNull(),
+                        avgPrefillTimeMs = measuredRows.map { it.prefillTimeMs }.averageLongOrNull(),
+                        avgGenerationTimeMs = measuredRows.map { it.generationTimeMs }.averageLongOrNull(),
+                        avgTotalTimeMs = measuredRows.map { it.totalTimeMs }.averageLongOrNull(),
+                        createdAt = runCreatedAt,
+                        updatedAt = nowIsoString(),
+                    ),
+            )
+        }
+    }
+}
+
+private fun List<PersistedBatchCaseResult>.successOnly(): List<PersistedBatchCaseResult> =
+    filter { it.status == "success" }
+
+private fun Iterable<Float>.averageOrNull(): Float? {
+    val list = this.toList()
+    if (list.isEmpty()) return null
+    return list.sum() / list.size.toFloat()
+}
+
+private fun Iterable<Long>.averageLongOrNull(): Long? {
+    val list = this.toList()
+    if (list.isEmpty()) return null
+    return list.sum() / list.size
+}
+
+private fun nowIsoString(): String =
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).format(Date())
+
+private fun computeOverallTokensPerSec(
+    promptTokens: Int,
+    generatedTokens: Int,
+    totalTimeMs: Long,
+): Float {
+    if (totalTimeMs <= 0L) return 0f
+    return ((promptTokens + generatedTokens).toFloat() / totalTimeMs.toFloat()) * 1000f
 }
