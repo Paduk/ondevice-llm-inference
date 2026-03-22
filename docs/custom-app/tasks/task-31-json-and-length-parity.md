@@ -12,8 +12,8 @@ Reduce remaining output-shape and generation-length differences between Python a
 
 ## Required Reads
 
-- [inference-parity-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/inference-parity-spec.md)
-- [python-vs-apk-inference-gap-ko.md](/home/hj153lee/SmolChat-Android/docs/custom-app/python-vs-apk-inference-gap-ko.md)
+- [inference-parity-spec.md](../specs/inference-parity-spec.md)
+- [python-vs-apk-inference-gap-ko.md](../python-vs-apk-inference-gap-ko.md)
 
 ## Likely Files
 

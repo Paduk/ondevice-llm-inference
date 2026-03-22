@@ -6,8 +6,8 @@ Refactor setup so it selects `Test Type` first, then reveals only the relevant m
 
 ## Read First
 
-- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
-- [prompt-preset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-preset-spec.md)
+- [test-type-routing-spec.md](../specs/test-type-routing-spec.md)
+- [prompt-preset-spec.md](../specs/prompt-preset-spec.md)
 
 ## Scope
 

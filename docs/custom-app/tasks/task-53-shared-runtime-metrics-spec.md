@@ -13,9 +13,9 @@ Freeze the rule that Toolcalling and RMA should present runtime metrics through 
 
 ## Read First
 
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
-- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
+- [test-type-routing-spec.md](../specs/test-type-routing-spec.md)
 
 ## Completion Criteria
 

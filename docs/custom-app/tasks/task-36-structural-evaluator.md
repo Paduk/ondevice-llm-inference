@@ -6,8 +6,8 @@ Update evaluation so model outputs and TSV `answer` values are parsed and compar
 
 ## Read First
 
-- [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [tool-call-output-spec.md](../specs/tool-call-output-spec.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Scope
 
@@ -19,10 +19,10 @@ Update evaluation so model outputs and TSV `answer` values are parsed and compar
 
 ## Likely Files
 
-- [CustomAppEvaluator.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppEvaluator.kt)
-- [CustomAppTsvLoader.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppTsvLoader.kt)
-- [CustomAppJsonParser.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
-- [CustomAppChatViewModel.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
+- [CustomAppEvaluator.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppEvaluator.kt)
+- [CustomAppTsvLoader.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppTsvLoader.kt)
+- [CustomAppJsonParser.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
+- [CustomAppChatViewModel.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
 
 ## Completion Criteria
 

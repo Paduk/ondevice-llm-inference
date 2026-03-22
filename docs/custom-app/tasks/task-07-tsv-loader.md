@@ -6,7 +6,7 @@ Load the gold labels used for evaluation.
 
 ## Input Spec
 
-- [tsv-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tsv-schema.md)
+- [tsv-schema.md](../specs/tsv-schema.md)
 
 ## Scope
 

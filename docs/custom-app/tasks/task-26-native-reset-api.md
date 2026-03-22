@@ -13,7 +13,7 @@ Add a reset pathway that clears conversation and KV/cache state without unloadin
 
 ## Required Reads
 
-- [batch-session-reset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-session-reset-spec.md)
+- [batch-session-reset-spec.md](../specs/batch-session-reset-spec.md)
 
 ## Likely Files
 

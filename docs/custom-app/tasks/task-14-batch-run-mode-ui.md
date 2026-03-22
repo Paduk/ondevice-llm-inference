@@ -12,7 +12,7 @@ Let the user choose how much of the TSV to run during a batch test.
 
 ## Required Specs
 
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
 
 ## Completion Criteria
 

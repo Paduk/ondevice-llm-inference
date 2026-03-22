@@ -12,7 +12,7 @@ Expose prompt presets in the setup screen so the user can replace the current pr
 
 ## Required Specs
 
-- [prompt-preset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-preset-spec.md)
+- [prompt-preset-spec.md](../specs/prompt-preset-spec.md)
 
 ## Completion Criteria
 

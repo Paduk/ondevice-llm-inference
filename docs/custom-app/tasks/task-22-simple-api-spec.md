@@ -13,8 +13,8 @@ Freeze the corrected source of truth for `{tools}` so the Android app matches th
 
 ## Required Reads
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
-- [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
+- [api-metadata-asset-spec.md](../specs/api-metadata-asset-spec.md)
 
 ## Likely Files
 

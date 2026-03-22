@@ -13,8 +13,8 @@ Support `{tools}` in prompt rendering using TSV candidates and loaded API metada
 
 ## Required Specs
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
-- [prompt-template-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-template-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
+- [prompt-template-spec.md](../specs/prompt-template-spec.md)
 
 ## Completion Criteria
 

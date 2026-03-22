@@ -6,7 +6,7 @@ Freeze how runtime metrics should be split between prefill and generation, how b
 
 ## Read First
 
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
 
 ## Scope
 

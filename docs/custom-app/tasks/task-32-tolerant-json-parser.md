@@ -6,8 +6,8 @@ Relax model-output parsing so both JSON-style double quotes and Python-style sin
 
 ## Read First
 
-- [parser-and-batch-retention-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/parser-and-batch-retention-spec.md)
-- [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
+- [parser-and-batch-retention-spec.md](../specs/parser-and-batch-retention-spec.md)
+- [json-output-schema.md](../specs/json-output-schema.md)
 
 ## Scope
 
@@ -18,8 +18,8 @@ Relax model-output parsing so both JSON-style double quotes and Python-style sin
 
 ## Likely Files
 
-- [CustomAppJsonParser.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
-- [CustomAppChatViewModel.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
+- [CustomAppJsonParser.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
+- [CustomAppChatViewModel.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
 
 ## Completion Criteria
 

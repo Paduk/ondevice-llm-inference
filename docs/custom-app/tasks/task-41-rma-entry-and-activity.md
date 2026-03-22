@@ -6,8 +6,8 @@ Add a dedicated RMA evaluation activity or screen flow that reuses the common co
 
 ## Read First
 
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
-- [architecture.md](/home/hj153lee/SmolChat-Android/docs/custom-app/architecture.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
+- [architecture.md](../architecture.md)
 
 ## Scope
 

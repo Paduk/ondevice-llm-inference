@@ -13,7 +13,7 @@ Freeze the preset-prompt behavior before modifying the setup UI.
 
 ## Required Specs
 
-- [prompt-preset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-preset-spec.md)
+- [prompt-preset-spec.md](../specs/prompt-preset-spec.md)
 
 ## Completion Criteria
 

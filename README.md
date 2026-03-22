@@ -18,14 +18,14 @@ The current app supports:
 
 If you are working on the current custom app, use these docs first:
 
-1. [Custom App Docs Map](/home/hj153lee/SmolChat-Android/docs/custom-app/README.md)
-2. [Roadmap](/home/hj153lee/SmolChat-Android/docs/custom-app/roadmap.md)
+1. [Custom App Docs Map](docs/custom-app/README.md)
+2. [Roadmap](docs/custom-app/roadmap.md)
 
 ## Current Focus
 
 Current project status is tracked in:
 
-- [Roadmap](/home/hj153lee/SmolChat-Android/docs/custom-app/roadmap.md)
+- [Roadmap](docs/custom-app/roadmap.md)
 
 That file contains:
 
@@ -37,17 +37,17 @@ That file contains:
 
 ## Key Docs
 
-- [Architecture](/home/hj153lee/SmolChat-Android/docs/custom-app/architecture.md)
-- [Task 1-8 Summary (KO)](/home/hj153lee/SmolChat-Android/docs/custom-app/task-1-8-summary-ko.md)
-- [Batch Result Export Spec](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
-- [Runtime Metrics Spec](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
-- [RMA Rewrite Spec](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [Architecture](docs/custom-app/architecture.md)
+- [Task 1-8 Summary (KO)](docs/custom-app/task-1-8-summary-ko.md)
+- [Batch Result Export Spec](docs/custom-app/specs/batch-result-export-spec.md)
+- [Runtime Metrics Spec](docs/custom-app/specs/runtime-metrics-spec.md)
+- [RMA Rewrite Spec](docs/custom-app/specs/rma-rewrite-spec.md)
 
 ## Repo Notes
 
-- app entry and setup flow live under [ui/customapp](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp)
-- on-device inference engine lives under [smollm](/home/hj153lee/SmolChat-Android/smollm)
-- default bundled gold TSV is [tc.tsv](/home/hj153lee/SmolChat-Android/app/src/main/assets/tc.tsv)
+- app entry and setup flow live under [ui/customapp](app/src/main/java/io/shubham0204/smollmandroid/ui/customapp)
+- on-device inference engine lives under [smollm](smollm)
+- default bundled gold TSV is [tc.tsv](app/src/main/assets/tc.tsv)
 
 ## Upstream Base
 

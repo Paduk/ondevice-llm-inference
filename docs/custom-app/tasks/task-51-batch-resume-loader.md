@@ -13,8 +13,8 @@ Allow a batch run to continue from a prior result TSV by skipping rows that were
 
 ## Read First
 
-- [batch-result-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
+- [batch-result-export-spec.md](../specs/batch-result-export-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
 
 ## Completion Criteria
 

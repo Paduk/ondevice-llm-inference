@@ -13,8 +13,8 @@ Freeze what must match between Python and APK before any quality comparison is t
 
 ## Required Reads
 
-- [python-vs-apk-inference-gap-ko.md](/home/hj153lee/SmolChat-Android/docs/custom-app/python-vs-apk-inference-gap-ko.md)
-- [inference-parity-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/inference-parity-spec.md)
+- [python-vs-apk-inference-gap-ko.md](../python-vs-apk-inference-gap-ko.md)
+- [inference-parity-spec.md](../specs/inference-parity-spec.md)
 
 ## Likely Files
 

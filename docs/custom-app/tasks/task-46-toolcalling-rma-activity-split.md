@@ -6,8 +6,8 @@ Split evaluator entry into separate tool-calling and RMA activities while reusin
 
 ## Read First
 
-- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [test-type-routing-spec.md](../specs/test-type-routing-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
 
 ## Scope
 

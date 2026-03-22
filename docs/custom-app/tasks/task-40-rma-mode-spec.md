@@ -6,7 +6,7 @@ Freeze the RMA rewrite task as a separate evaluation mode instead of extending t
 
 ## Read First
 
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
 
 ## Scope
 

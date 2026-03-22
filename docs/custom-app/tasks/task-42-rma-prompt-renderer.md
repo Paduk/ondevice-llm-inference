@@ -6,7 +6,7 @@ Render RMA prompts using the exact input construction used by the Python `prepro
 
 ## Read First
 
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
 
 ## Scope
 

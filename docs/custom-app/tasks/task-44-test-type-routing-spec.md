@@ -6,7 +6,7 @@ Freeze the top-level `Toolcalling`, `RMA`, and `E2E` routing model so the setup 
 
 ## Read First
 
-- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
+- [test-type-routing-spec.md](../specs/test-type-routing-spec.md)
 
 ## Scope
 

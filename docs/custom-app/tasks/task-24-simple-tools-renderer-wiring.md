@@ -14,8 +14,8 @@ Switch prompt rendering and batch wiring so `{tools}` always comes from `simple_
 
 ## Required Reads
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
-- [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
+- [api-metadata-asset-spec.md](../specs/api-metadata-asset-spec.md)
 
 ## Likely Files
 

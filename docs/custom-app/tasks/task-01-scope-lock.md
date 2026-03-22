@@ -6,9 +6,9 @@ Freeze the minimum assumptions required to implement the first usable MVP.
 
 ## Inputs
 
-- [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
-- [tsv-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tsv-schema.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [json-output-schema.md](../specs/json-output-schema.md)
+- [tsv-schema.md](../specs/tsv-schema.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Decisions To Finalize
 
@@ -20,7 +20,7 @@ Freeze the minimum assumptions required to implement the first usable MVP.
 ## Deliverable
 
 - update the relevant files in `specs/`
-- update [roadmap.md](/home/hj153lee/SmolChat-Android/docs/custom-app/roadmap.md)
+- update [roadmap.md](../roadmap.md)
 
 ## Completion Criteria
 

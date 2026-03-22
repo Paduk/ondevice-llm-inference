@@ -13,7 +13,7 @@ Load `api_v3.0.1.jsonl` from Android assets and expose plan-based metadata looku
 
 ## Required Specs
 
-- [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
+- [api-metadata-asset-spec.md](../specs/api-metadata-asset-spec.md)
 
 ## Completion Criteria
 

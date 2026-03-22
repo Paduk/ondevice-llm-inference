@@ -6,8 +6,8 @@ Implement an RMA-specific evaluator that compares model rewrite output with TSV 
 
 ## Read First
 
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
-- [tsv-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tsv-schema.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
+- [tsv-schema.md](../specs/tsv-schema.md)
 
 ## Scope
 

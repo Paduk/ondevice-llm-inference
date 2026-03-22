@@ -12,9 +12,9 @@ Freeze the rule that `RMA` should reuse the same batch export actions UI already
 
 ## Read First
 
-- [shared-batch-export-ui-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/shared-batch-export-ui-spec.md)
-- [batch-result-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [shared-batch-export-ui-spec.md](../specs/shared-batch-export-ui-spec.md)
+- [batch-result-export-spec.md](../specs/batch-result-export-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
 
 ## Completion Criteria
 

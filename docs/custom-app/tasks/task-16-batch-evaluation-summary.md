@@ -13,8 +13,8 @@ Provide a readable summary for dataset-driven runs.
 
 ## Required Specs
 
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Completion Criteria
 

@@ -14,8 +14,8 @@ Freeze how `{tools}` is produced before adding asset loaders and renderer change
 
 ## Required Specs
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
-- [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
+- [api-metadata-asset-spec.md](../specs/api-metadata-asset-spec.md)
 
 ## Completion Criteria
 

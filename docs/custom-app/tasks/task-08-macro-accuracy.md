@@ -6,9 +6,9 @@ Compare model predictions and gold labels in the simplest correct MVP form.
 
 ## Input Specs
 
-- [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
-- [tsv-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tsv-schema.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [json-output-schema.md](../specs/json-output-schema.md)
+- [tsv-schema.md](../specs/tsv-schema.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Scope
 

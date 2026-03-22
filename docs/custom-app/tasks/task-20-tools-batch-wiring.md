@@ -12,8 +12,8 @@ Use rendered `{tools}` strings during real batch inference and preview generatio
 
 ## Required Specs
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
 
 ## Completion Criteria
 

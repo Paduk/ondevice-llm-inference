@@ -6,7 +6,7 @@ Extend native and Kotlin runtime metrics so prefill and generation are measured 
 
 ## Read First
 
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
 
 ## Scope
 
@@ -16,11 +16,11 @@ Extend native and Kotlin runtime metrics so prefill and generation are measured 
 
 ## Likely Files
 
-- [LLMInference.h](/home/hj153lee/SmolChat-Android/smollm/src/main/cpp/LLMInference.h)
-- [LLMInference.cpp](/home/hj153lee/SmolChat-Android/smollm/src/main/cpp/LLMInference.cpp)
-- [smollm.cpp](/home/hj153lee/SmolChat-Android/smollm/src/main/cpp/smollm.cpp)
-- [SmolLM.kt](/home/hj153lee/SmolChat-Android/smollm/src/main/java/io/shubham0204/smollm/SmolLM.kt)
-- [SmolLMManager.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/llm/SmolLMManager.kt)
+- [LLMInference.h](../../../smollm/src/main/cpp/LLMInference.h)
+- [LLMInference.cpp](../../../smollm/src/main/cpp/LLMInference.cpp)
+- [smollm.cpp](../../../smollm/src/main/cpp/smollm.cpp)
+- [SmolLM.kt](../../../smollm/src/main/java/io/shubham0204/smollm/SmolLM.kt)
+- [SmolLMManager.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/llm/SmolLMManager.kt)
 
 ## Completion Criteria
 

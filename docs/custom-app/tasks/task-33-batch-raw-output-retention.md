@@ -6,8 +6,8 @@ Keep raw model outputs visible in the conversation section during and after a ba
 
 ## Read First
 
-- [parser-and-batch-retention-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/parser-and-batch-retention-spec.md)
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
+- [parser-and-batch-retention-spec.md](../specs/parser-and-batch-retention-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
 
 ## Scope
 
@@ -18,8 +18,8 @@ Keep raw model outputs visible in the conversation section during and after a ba
 
 ## Likely Files
 
-- [CustomAppChatViewModel.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
-- [CustomAppRoot.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
+- [CustomAppChatViewModel.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
+- [CustomAppRoot.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
 
 ## Completion Criteria
 

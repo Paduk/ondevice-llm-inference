@@ -6,8 +6,8 @@
 
 관련 상세 문서는 다음을 기준으로 본다.
 
-- 문서 맵: [README.md](/home/hj153lee/SmolChat-Android/docs/custom-app/README.md)
-- 진행 현황: [roadmap.md](/home/hj153lee/SmolChat-Android/docs/custom-app/roadmap.md)
+- 문서 맵: [README.md](README.md)
+- 진행 현황: [roadmap.md](roadmap.md)
 
 ## 현재 상태 요약
 

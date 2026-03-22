@@ -13,7 +13,7 @@ Load `simple_api.json` from app assets and expose it as a cached plan-indexed lo
 
 ## Required Reads
 
-- [api-metadata-asset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/api-metadata-asset-spec.md)
+- [api-metadata-asset-spec.md](../specs/api-metadata-asset-spec.md)
 
 ## Likely Files
 

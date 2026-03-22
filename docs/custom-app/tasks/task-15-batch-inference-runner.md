@@ -13,9 +13,9 @@ Run repeated on-device inference across selected TSV rows using the rendered pro
 
 ## Required Specs
 
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
-- [prompt-template-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-template-spec.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
+- [prompt-template-spec.md](../specs/prompt-template-spec.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Completion Criteria
 

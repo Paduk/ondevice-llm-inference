@@ -6,8 +6,8 @@ Add a dedicated E2E evaluator activity that runs RMA first and then tool-calling
 
 ## Read First
 
-- [test-type-routing-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/test-type-routing-spec.md)
-- [e2e-evaluator-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/e2e-evaluator-spec.md)
+- [test-type-routing-spec.md](../specs/test-type-routing-spec.md)
+- [e2e-evaluator-spec.md](../specs/e2e-evaluator-spec.md)
 
 ## Scope
 

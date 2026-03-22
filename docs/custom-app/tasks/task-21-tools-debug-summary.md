@@ -12,7 +12,7 @@ Make tools injection failures understandable without reading logs.
 
 ## Required Specs
 
-- [tools-injection-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tools-injection-spec.md)
+- [tools-injection-spec.md](../specs/tools-injection-spec.md)
 
 ## Completion Criteria
 

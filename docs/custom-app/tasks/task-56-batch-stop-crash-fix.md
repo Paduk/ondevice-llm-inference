@@ -14,9 +14,9 @@ Fix the batch `Stop` crash by making cancellation, generation shutdown, native u
 
 ## Read First
 
-- [batch-stop-safety-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-stop-safety-spec.md)
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
-- [batch-session-reset-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-session-reset-spec.md)
+- [batch-stop-safety-spec.md](../specs/batch-stop-safety-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
+- [batch-session-reset-spec.md](../specs/batch-session-reset-spec.md)
 
 ## Completion Criteria
 

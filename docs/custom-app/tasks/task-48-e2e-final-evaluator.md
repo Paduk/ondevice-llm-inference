@@ -6,8 +6,8 @@ Score only the final tool-calling output in the E2E path.
 
 ## Read First
 
-- [e2e-evaluator-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/e2e-evaluator-spec.md)
-- [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
+- [e2e-evaluator-spec.md](../specs/e2e-evaluator-spec.md)
+- [tool-call-output-spec.md](../specs/tool-call-output-spec.md)
 
 ## Scope
 

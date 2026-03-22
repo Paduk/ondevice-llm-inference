@@ -6,8 +6,8 @@ Freeze the actual output schema for the current task so parsing and evaluation c
 
 ## Read First
 
-- [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
-- [evaluation-rule.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/evaluation-rule.md)
+- [tool-call-output-spec.md](../specs/tool-call-output-spec.md)
+- [evaluation-rule.md](../specs/evaluation-rule.md)
 
 ## Scope
 

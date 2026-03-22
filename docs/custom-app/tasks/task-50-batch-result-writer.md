@@ -13,8 +13,8 @@ Persist batch results to disk in a stable TSV format while a run is still in pro
 
 ## Read First
 
-- [batch-result-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+- [batch-result-export-spec.md](../specs/batch-result-export-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
 
 ## Likely Files
 

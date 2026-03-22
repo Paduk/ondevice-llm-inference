@@ -12,8 +12,8 @@ Render the active prompt with TSV row values before each batch inference call.
 
 ## Required Specs
 
-- [prompt-template-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/prompt-template-spec.md)
-- [tsv-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tsv-schema.md)
+- [prompt-template-spec.md](../specs/prompt-template-spec.md)
+- [tsv-schema.md](../specs/tsv-schema.md)
 
 ## Completion Criteria
 

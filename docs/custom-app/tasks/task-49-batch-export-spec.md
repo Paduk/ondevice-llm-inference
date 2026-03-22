@@ -14,9 +14,9 @@ Freeze the result-export and resume assumptions for long-running batch evaluatio
 
 ## Read First
 
-- [batch-run-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-run-spec.md)
-- [batch-result-export-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/batch-result-export-spec.md)
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+- [batch-run-spec.md](../specs/batch-run-spec.md)
+- [batch-result-export-spec.md](../specs/batch-result-export-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
 
 ## Likely Files
 

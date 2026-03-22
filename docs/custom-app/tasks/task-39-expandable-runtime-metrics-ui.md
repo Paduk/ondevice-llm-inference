@@ -6,7 +6,7 @@ Show core metrics by default and hide detailed runtime and batch metrics behind 
 
 ## Read First
 
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
 
 ## Scope
 
@@ -16,8 +16,8 @@ Show core metrics by default and hide detailed runtime and batch metrics behind 
 
 ## Likely Files
 
-- [CustomAppChatViewModel.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
-- [CustomAppRoot.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
+- [CustomAppChatViewModel.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
+- [CustomAppRoot.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
 
 ## Completion Criteria
 

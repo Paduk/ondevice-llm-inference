@@ -13,8 +13,8 @@ Refactor Toolcalling and RMA so they render runtime metrics through the same sha
 
 ## Read First
 
-- [runtime-metrics-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/runtime-metrics-spec.md)
-- [rma-rewrite-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/rma-rewrite-spec.md)
+- [runtime-metrics-spec.md](../specs/runtime-metrics-spec.md)
+- [rma-rewrite-spec.md](../specs/rma-rewrite-spec.md)
 
 ## Completion Criteria
 

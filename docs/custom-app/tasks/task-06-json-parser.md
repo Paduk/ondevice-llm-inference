@@ -6,7 +6,7 @@ Parse model output assuming valid JSON response format.
 
 ## Input Spec
 
-- [json-output-schema.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/json-output-schema.md)
+- [json-output-schema.md](../specs/json-output-schema.md)
 
 ## Scope
 

@@ -6,8 +6,8 @@ Replace the old flat-output parser with a parser that can read nested tool-call 
 
 ## Read First
 
-- [tool-call-output-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/tool-call-output-spec.md)
-- [parser-and-batch-retention-spec.md](/home/hj153lee/SmolChat-Android/docs/custom-app/specs/parser-and-batch-retention-spec.md)
+- [tool-call-output-spec.md](../specs/tool-call-output-spec.md)
+- [parser-and-batch-retention-spec.md](../specs/parser-and-batch-retention-spec.md)
 
 ## Scope
 
@@ -19,9 +19,9 @@ Replace the old flat-output parser with a parser that can read nested tool-call 
 
 ## Likely Files
 
-- [CustomAppJsonParser.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
-- [CustomAppChatViewModel.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
-- [CustomAppRoot.kt](/home/hj153lee/SmolChat-Android/app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
+- [CustomAppJsonParser.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppJsonParser.kt)
+- [CustomAppChatViewModel.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppChatViewModel.kt)
+- [CustomAppRoot.kt](../../../app/src/main/java/io/shubham0204/smollmandroid/ui/customapp/CustomAppRoot.kt)
 
 ## Completion Criteria
 
