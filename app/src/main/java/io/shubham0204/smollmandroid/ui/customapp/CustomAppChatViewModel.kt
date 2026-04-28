@@ -111,6 +111,7 @@ data class CustomAppChatUiState(
     val batchTotalCount: Int = 0,
     val batchCompletedCount: Int = 0,
     val batchFailedCount: Int = 0,
+    val batchTotalPromptTokens: Int = 0,
     val batchTotalPrefillTimeMs: Long = 0,
     val batchTotalGenerationTimeMs: Long = 0,
     val batchTotalGeneratedTokens: Int = 0,
@@ -155,6 +156,16 @@ data class CustomAppChatUiState(
 
     val batchAverageGenerationTimeMs: Long?
         get() = if (batchMeasuredCount <= 0) null else batchTotalGenerationTimeMs / batchMeasuredCount
+
+    val batchAveragePromptTokens: Float?
+        get() =
+            if (batchMeasuredCount <= 0) null
+            else batchTotalPromptTokens.toFloat() / batchMeasuredCount.toFloat()
+
+    val batchAverageGeneratedTokens: Float?
+        get() =
+            if (batchMeasuredCount <= 0) null
+            else batchTotalGeneratedTokens.toFloat() / batchMeasuredCount.toFloat()
 
     val batchAverageGenerationSpeed: Float?
         get() = if (batchMeasuredCount <= 0) null else batchGenerationSpeedSum / batchMeasuredCount.toFloat()
@@ -358,6 +369,7 @@ class CustomAppChatViewModel(
                 latestEvaluationResult = null,
                 macroAccuracy = null,
                 evaluationErrorMessage = null,
+                batchTotalPromptTokens = 0,
                 batchTotalPrefillTimeMs = 0,
                 batchTotalGenerationTimeMs = 0,
                 batchTotalGeneratedTokens = 0,
@@ -441,6 +453,7 @@ class CustomAppChatViewModel(
                         batchTotalCount = selectedRows.size,
                         batchCompletedCount = resumedRows.size,
                         batchFailedCount = resumedFailedCount,
+                        batchTotalPromptTokens = resumedMeasuredRows.sumOf { it.promptTokens },
                         batchTotalPrefillTimeMs = resumedMeasuredRows.sumOf { it.prefillTimeMs },
                         batchTotalGenerationTimeMs = resumedMeasuredRows.sumOf { it.generationTimeMs },
                         batchTotalGeneratedTokens = resumedMeasuredRows.sumOf { it.generatedTokens },
@@ -615,6 +628,9 @@ class CustomAppChatViewModel(
                                 batchFailedCount =
                                     if (isFailed) currentUiState.batchFailedCount + 1
                                     else currentUiState.batchFailedCount,
+                                batchTotalPromptTokens =
+                                    currentUiState.batchTotalPromptTokens +
+                                        if (shouldMeasureMetrics) response.promptTokenCount else 0,
                                 batchTotalPrefillTimeMs =
                                     currentUiState.batchTotalPrefillTimeMs +
                                         if (shouldMeasureMetrics) response.prefillTimeMs else 0,
@@ -813,6 +829,7 @@ class CustomAppChatViewModel(
                 batchTotalCount = 0,
                 batchCompletedCount = 0,
                 batchFailedCount = 0,
+                batchTotalPromptTokens = 0,
                 batchTotalPrefillTimeMs = 0,
                 batchTotalGenerationTimeMs = 0,
                 batchTotalGeneratedTokens = 0,
@@ -1059,6 +1076,9 @@ class CustomAppChatViewModel(
                         completedRows = rows.size,
                         failedRows = failedRows,
                         macroAccuracy = macroAccuracy,
+                        avgPromptTokens = measuredRows.map { it.promptTokens.toFloat() }.averageOrNull(),
+                        avgGeneratedTokens =
+                            measuredRows.map { it.generatedTokens.toFloat() }.averageOrNull(),
                         avgPrefillTokensPerSec = measuredRows.map { it.prefillTokensPerSec }.averageOrNull(),
                         avgGenerationTokensPerSec = measuredRows.map { it.generationTokensPerSec }.averageOrNull(),
                         avgOverallTokensPerSec = measuredRows.map { it.overallTokensPerSec }.averageOrNull(),

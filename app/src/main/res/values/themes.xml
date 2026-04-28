@@ -4,4 +4,10 @@
     <style name="Theme.SmolLMAndroid" parent="android:Theme.Material.Light.NoActionBar" >
     </style>
 
+    <style name="Theme.SmolLMAndroid.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@android:color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/read_source</item>
+        <item name="postSplashScreenTheme">@style/Theme.SmolLMAndroid</item>
+    </style>
+
 </resources>

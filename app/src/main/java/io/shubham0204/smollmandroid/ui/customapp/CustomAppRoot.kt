@@ -584,13 +584,21 @@ private fun ReadEvaluateScreen(
                         value = uiState.batchAverageGenerationTimeMs?.let { formatMillis(it) } ?: "N/A",
                     )
                     MetricRow(
-                        label = "Batch avg gen speed",
+                        label = "Tokens (Prefill / Decode)",
+                        value =
+                            formatAverageTokenPair(
+                                prefillTokens = uiState.batchAveragePromptTokens,
+                                decodeTokens = uiState.batchAverageGeneratedTokens,
+                            ),
+                    )
+                    MetricRow(
+                        label = "Decode (tok/s)",
                         value =
                             uiState.batchAverageGenerationSpeed?.let { "${"%.2f".format(it)} token/s" }
                                 ?: "N/A",
                     )
                     MetricRow(
-                        label = "Batch avg prefill speed",
+                        label = "Prefill (tok/s)",
                         value =
                             uiState.batchAveragePrefillSpeed?.let { "${"%.2f".format(it)} token/s" }
                                 ?: "N/A",
@@ -1006,13 +1014,21 @@ private fun ChatEvaluatePlaceholderScreen(
                         value = uiState.batchAverageGenerationTimeMs?.let { formatMillis(it) } ?: "N/A",
                     )
                     MetricRow(
-                        label = "Batch avg gen speed",
+                        label = "Tokens (Prefill / Decode)",
+                        value =
+                            formatAverageTokenPair(
+                                prefillTokens = uiState.batchAveragePromptTokens,
+                                decodeTokens = uiState.batchAverageGeneratedTokens,
+                            ),
+                    )
+                    MetricRow(
+                        label = "Decode (tok/s)",
                         value =
                             uiState.batchAverageGenerationSpeed?.let { "${"%.2f".format(it)} token/s" }
                                 ?: "N/A",
                     )
                     MetricRow(
-                        label = "Batch avg prefill speed",
+                        label = "Prefill (tok/s)",
                         value =
                             uiState.batchAveragePrefillSpeed?.let { "${"%.2f".format(it)} token/s" }
                                 ?: "N/A",
@@ -1184,6 +1200,17 @@ private fun PromptPresetButton(
 }
 
 private fun formatMillis(value: Long): String = "${"%.3f".format(value / 1000f)} s"
+
+private fun formatAverageTokenPair(
+    prefillTokens: Float?,
+    decodeTokens: Float?,
+): String {
+    if (prefillTokens == null || decodeTokens == null) return "N/A"
+    return "${formatAverageTokenValue(prefillTokens)} / ${formatAverageTokenValue(decodeTokens)}"
+}
+
+private fun formatAverageTokenValue(value: Float): String =
+    "%.1f".format(value).removeSuffix(".0")
 
 private data class SharedRuntimeMetricsState(
     val totalTimeMs: Long?,

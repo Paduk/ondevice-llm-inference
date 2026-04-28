@@ -17,14 +17,22 @@
 package io.shubham0204.smollmandroid
 
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import io.shubham0204.smollmandroid.ui.customapp.CustomAppRoot
 import io.shubham0204.smollmandroid.ui.theme.SmolLMAndroidTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        val splashStartTime = SystemClock.uptimeMillis()
+        splashScreen.setKeepOnScreenCondition {
+            SystemClock.uptimeMillis() - splashStartTime < 2_000L
+        }
+
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 

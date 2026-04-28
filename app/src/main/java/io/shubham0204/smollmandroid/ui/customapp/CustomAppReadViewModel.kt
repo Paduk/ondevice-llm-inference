@@ -86,6 +86,7 @@ data class CustomAppReadUiState(
     val promptTokenCount: Int? = null,
     val generatedTokenCount: Int? = null,
     val contextLengthUsed: Int? = null,
+    val batchTotalPromptTokens: Int = 0,
     val batchTotalPrefillTimeMs: Long = 0,
     val batchTotalGenerationTimeMs: Long = 0,
     val batchTotalGeneratedTokens: Int = 0,
@@ -116,6 +117,16 @@ data class CustomAppReadUiState(
 
     val batchAverageGenerationTimeMs: Long?
         get() = if (batchMeasuredCount <= 0) null else batchTotalGenerationTimeMs / batchMeasuredCount
+
+    val batchAveragePromptTokens: Float?
+        get() =
+            if (batchMeasuredCount <= 0) null
+            else batchTotalPromptTokens.toFloat() / batchMeasuredCount.toFloat()
+
+    val batchAverageGeneratedTokens: Float?
+        get() =
+            if (batchMeasuredCount <= 0) null
+            else batchTotalGeneratedTokens.toFloat() / batchMeasuredCount.toFloat()
 
     val batchAverageGenerationSpeed: Float?
         get() = if (batchMeasuredCount <= 0) null else batchGenerationSpeedSum / batchMeasuredCount.toFloat()
@@ -202,6 +213,7 @@ class CustomAppReadViewModel(
                         promptTokenCount = null,
                         generatedTokenCount = null,
                         contextLengthUsed = null,
+                        batchTotalPromptTokens = 0,
                         batchTotalPrefillTimeMs = 0,
                         batchTotalGenerationTimeMs = 0,
                         batchTotalGeneratedTokens = 0,
@@ -340,6 +352,9 @@ class CustomAppReadViewModel(
                                 batchFailedCount =
                                     if (isFailed) currentUiState.batchFailedCount + 1
                                     else currentUiState.batchFailedCount,
+                                batchTotalPromptTokens =
+                                    currentUiState.batchTotalPromptTokens +
+                                        if (shouldMeasureMetrics) response.promptTokenCount else 0,
                                 batchTotalPrefillTimeMs =
                                     currentUiState.batchTotalPrefillTimeMs +
                                         if (shouldMeasureMetrics) response.prefillTimeMs else 0,
@@ -538,6 +553,7 @@ class CustomAppReadViewModel(
                 batchFailedCount = 0,
                 batchLatestUniqueIdx = null,
                 batchStatusMessage = null,
+                batchTotalPromptTokens = 0,
                 batchTotalPrefillTimeMs = 0,
                 batchTotalGenerationTimeMs = 0,
                 batchTotalGeneratedTokens = 0,
@@ -727,6 +743,9 @@ class CustomAppReadViewModel(
                         completedRows = rows.size,
                         failedRows = failedRows,
                         macroAccuracy = macroAccuracy,
+                        avgPromptTokens = measuredRows.map { it.promptTokens.toFloat() }.averageOrNull(),
+                        avgGeneratedTokens =
+                            measuredRows.map { it.generatedTokens.toFloat() }.averageOrNull(),
                         avgPrefillTokensPerSec = measuredRows.map { it.prefillTokensPerSec }.averageOrNull(),
                         avgGenerationTokensPerSec = measuredRows.map { it.generationTokensPerSec }.averageOrNull(),
                         avgOverallTokensPerSec = measuredRows.map { it.overallTokensPerSec }.averageOrNull(),

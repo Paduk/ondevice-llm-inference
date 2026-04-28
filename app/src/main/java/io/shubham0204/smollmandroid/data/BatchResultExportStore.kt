@@ -54,6 +54,8 @@ data class PersistedBatchSummary(
     val completedRows: Int,
     val failedRows: Int,
     val macroAccuracy: Float?,
+    val avgPromptTokens: Float?,
+    val avgGeneratedTokens: Float?,
     val avgPrefillTokensPerSec: Float?,
     val avgGenerationTokensPerSec: Float?,
     val avgOverallTokensPerSec: Float?,
@@ -257,6 +259,8 @@ class BatchResultExportStore(
             put("completed_rows", summary.completedRows)
             put("failed_rows", summary.failedRows)
             put("macro_accuracy", summary.macroAccuracy)
+            put("avg_prompt_tokens", summary.avgPromptTokens)
+            put("avg_generated_tokens", summary.avgGeneratedTokens)
             put("avg_prefill_tokens_per_sec", summary.avgPrefillTokensPerSec)
             put("avg_generation_tokens_per_sec", summary.avgGenerationTokensPerSec)
             put("avg_overall_tokens_per_sec", summary.avgOverallTokensPerSec)
