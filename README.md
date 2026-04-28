@@ -120,5 +120,4 @@ Install to a connected Android device:
 - [Runtime Metrics Spec](docs/custom-app/specs/runtime-metrics-spec.md)
 
 ## Upstream Base
-
-This repository started from `SmolChat-Android`, but the active product here is the `READEvaluator` app and its on-device evaluation workflow.
+This project began as a fork of `SmolChat-Android` and now focuses on `READEvaluator`, an Android app for on-device READ/Baseline evaluation.
