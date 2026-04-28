@@ -1,4 +1,8 @@
-# RMAEvaluator
+<p align="center">
+  <img src="app/src/main/res/drawable/read_launcher_foreground.png" alt="READEvaluator" width="320" />
+</p>
+
+# READEvaluator
 
 ## Purpose
 

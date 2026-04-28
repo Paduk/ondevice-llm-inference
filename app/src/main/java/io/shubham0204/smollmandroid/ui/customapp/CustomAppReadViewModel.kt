@@ -3,6 +3,7 @@ package io.shubham0204.smollmandroid.ui.customapp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.shubham0204.smollm.SmolLM
+import io.shubham0204.smollmandroid.data.ApiMetadataAssetStore
 import io.shubham0204.smollmandroid.data.AppDB
 import io.shubham0204.smollmandroid.data.BatchExportSession
 import io.shubham0204.smollmandroid.data.BatchResultExportStore
@@ -31,7 +32,6 @@ import java.util.Date
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.random.Random
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
 private const val PREF_SETUP_PROMPT_PRESET_KEY = "custom_app.setup.prompt_preset_key"
@@ -46,22 +46,18 @@ private const val PREF_SETUP_TSV_PATH = "custom_app.setup.tsv_path"
 private const val PREF_SETUP_TSV_NAME = "custom_app.setup.tsv_name"
 private const val PREF_BATCH_RUN_MODE = "custom_app.batch.run_mode"
 
-data class RmaEvaluationResult(
-    val uniqueIdx: String,
-    val goldRewrite: String,
-    val predictedRewrite: String,
-    val isCorrect: Boolean,
-)
-
-data class CustomAppRmaUiState(
+data class CustomAppReadUiState(
     val selectedModel: LLMModel? = null,
-    val selectedPromptPresetKey: String = PROMPT_PRESET_RMA_QWEN3,
+    val selectedPromptPresetKey: String = PROMPT_PRESET_READ_QWEN3,
     val goldRecords: List<GoldTsvRecord> = emptyList(),
     val goldTsvName: String = "",
     val goldTsvLoadError: String? = null,
     val selectedBatchRunMode: String = BATCH_RUN_MODE_FIRST_1,
-    val renderedRmaPromptPreview: String? = null,
-    val rmaPromptPreviewError: String? = null,
+    val renderedReadPromptPreview: String? = null,
+    val readPromptPreviewError: String? = null,
+    val renderedToolsMissingPlans: List<String> = emptyList(),
+    val renderedToolsCandidateCount: Int = 0,
+    val renderedToolsCount: Int = 0,
     val batchConversationMessages: List<ChatMessage> = emptyList(),
     val partialResponse: String = "",
     val isBatchRunning: Boolean = false,
@@ -75,9 +71,12 @@ data class CustomAppRmaUiState(
     val batchSummaryFilePath: String? = null,
     val batchLastFlushCompletedCount: Int = 0,
     val batchIsResumed: Boolean = false,
-    val evaluationHistory: List<RmaEvaluationResult> = emptyList(),
-    val latestEvaluationResult: RmaEvaluationResult? = null,
-    val exactMatchAccuracy: Float? = null,
+    val parsedPrediction: ParsedReadOutput? = null,
+    val parseErrorMessage: String? = null,
+    val latestRawModelOutput: String? = null,
+    val evaluationHistory: List<EvaluationResult> = emptyList(),
+    val latestEvaluationResult: EvaluationResult? = null,
+    val macroAccuracy: Float? = null,
     val evaluationErrorMessage: String? = null,
     val generationSpeedTokensPerSec: Float? = null,
     val prefillSpeedTokensPerSec: Float? = null,
@@ -92,6 +91,7 @@ data class CustomAppRmaUiState(
     val batchTotalGeneratedTokens: Int = 0,
     val batchGenerationSpeedSum: Float = 0f,
     val batchPrefillSpeedSum: Float = 0f,
+    val batchMeasuredCount: Int = 0,
     val errorMessage: String? = null,
     val statusMessage: String? = null,
 ) {
@@ -112,27 +112,28 @@ data class CustomAppRmaUiState(
             else batchSuccessCount.toFloat() / batchCompletedCount.toFloat()
 
     val batchAveragePrefillTimeMs: Long?
-        get() = if (batchCompletedCount <= 0) null else batchTotalPrefillTimeMs / batchCompletedCount
+        get() = if (batchMeasuredCount <= 0) null else batchTotalPrefillTimeMs / batchMeasuredCount
 
     val batchAverageGenerationTimeMs: Long?
-        get() = if (batchCompletedCount <= 0) null else batchTotalGenerationTimeMs / batchCompletedCount
+        get() = if (batchMeasuredCount <= 0) null else batchTotalGenerationTimeMs / batchMeasuredCount
 
     val batchAverageGenerationSpeed: Float?
-        get() = if (batchCompletedCount <= 0) null else batchGenerationSpeedSum / batchCompletedCount.toFloat()
+        get() = if (batchMeasuredCount <= 0) null else batchGenerationSpeedSum / batchMeasuredCount.toFloat()
 
     val batchAveragePrefillSpeed: Float?
-        get() = if (batchCompletedCount <= 0) null else batchPrefillSpeedSum / batchCompletedCount.toFloat()
+        get() = if (batchMeasuredCount <= 0) null else batchPrefillSpeedSum / batchMeasuredCount.toFloat()
 }
 
 @KoinViewModel
-class CustomAppRmaViewModel(
+class CustomAppReadViewModel(
     private val appDB: AppDB,
     private val sharedPrefStore: SharedPrefStore,
+    private val apiMetadataAssetStore: ApiMetadataAssetStore,
     private val batchResultExportStore: BatchResultExportStore,
     private val smolLMManager: SmolLMManager,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(CustomAppRmaUiState())
-    val uiState: StateFlow<CustomAppRmaUiState> = _uiState
+    private val _uiState = MutableStateFlow(CustomAppReadUiState())
+    val uiState: StateFlow<CustomAppReadUiState> = _uiState
     private var batchRunJob: Job? = null
 
     init {
@@ -148,12 +149,12 @@ class CustomAppRmaViewModel(
     fun startBatchRun() {
         val currentState = _uiState.value
         val selectedModel = currentState.selectedModel ?: run {
-            _uiState.update { it.copy(errorMessage = "No model selected for RMA batch run.") }
+            _uiState.update { it.copy(errorMessage = "No model selected for READ batch run.") }
             return
         }
         if (currentState.isBatchRunning) return
         if (currentState.goldRecords.isEmpty()) {
-            _uiState.update { it.copy(errorMessage = "RMA batch run requires a loaded TSV gold file.") }
+            _uiState.update { it.copy(errorMessage = "READ batch run requires a loaded TSV gold file.") }
             return
         }
 
@@ -179,14 +180,17 @@ class CustomAppRmaViewModel(
                         batchCompletedCount = 0,
                         batchFailedCount = 0,
                         batchLatestUniqueIdx = null,
-                        batchStatusMessage = "Starting RMA batch run...",
+                        batchStatusMessage = "Starting READ batch run...",
                         batchResultFilePath = null,
                         batchSummaryFilePath = null,
                         batchLastFlushCompletedCount = 0,
                         batchIsResumed = false,
+                        parsedPrediction = null,
+                        parseErrorMessage = null,
+                        latestRawModelOutput = null,
                         evaluationHistory = emptyList(),
                         latestEvaluationResult = null,
-                        exactMatchAccuracy = null,
+                        macroAccuracy = null,
                         evaluationErrorMessage = null,
                         errorMessage = null,
                         statusMessage = null,
@@ -203,16 +207,18 @@ class CustomAppRmaViewModel(
                         batchTotalGeneratedTokens = 0,
                         batchGenerationSpeedSum = 0f,
                         batchPrefillSpeedSum = 0f,
+                        batchMeasuredCount = 0,
                     )
                 }
 
                 var tempChat: Chat? = null
                 try {
                     val promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "")
+                    val apiMetadataByPlan = apiMetadataAssetStore.getAllSimple()
                     exportSession =
                         batchResultExportStore.createSession(
                             sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
-                            testType = "RMA",
+                            testType = "READ",
                             modelName = selectedModel.name,
                         )
                     tempChat = createBatchChat(selectedModel)
@@ -224,39 +230,90 @@ class CustomAppRmaViewModel(
                         )
                     }
 
-                    selectedRows.forEachIndexed { index, record ->
-                        val renderedPrompt = CustomAppRmaPromptRenderer.render(promptTemplate, record)
+                    selectedRows.forEachIndexed { _, record ->
+                        val renderResult =
+                            CustomAppReadPromptRenderer.render(
+                                template = promptTemplate,
+                                record = record,
+                                apiMetadataByPlan = apiMetadataByPlan,
+                            )
                         _uiState.update {
                             it.copy(
-                                renderedRmaPromptPreview = renderedPrompt,
-                                rmaPromptPreviewError = null,
+                                renderedReadPromptPreview = renderResult.prompt,
+                                readPromptPreviewError = null,
+                                renderedToolsMissingPlans = renderResult.missingPlans,
+                                renderedToolsCandidateCount = renderResult.parsedCandidateCount,
+                                renderedToolsCount = renderResult.renderedToolCount,
                                 batchLatestUniqueIdx = record.uniqueIdx,
                                 batchStatusMessage =
-                                    "Running ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                                    "Running ${persistedResults.size + 1}/${selectedRows.size}: ${record.uniqueIdx}",
                             )
                         }
 
                         resetBatchStateSuspend()
-                        val response = getRawResponseSuspend(renderedPrompt)
-                        val predicted = response.response.trim()
-                        val gold = record.rewritedQuery.trim()
-                        val result =
-                            RmaEvaluationResult(
-                                uniqueIdx = record.uniqueIdx,
-                                goldRewrite = gold,
-                                predictedRewrite = predicted,
-                                isCorrect = predicted == gold,
-                            )
+                        val response = getRawResponseSuspend(renderResult.prompt)
+                        val parseResult = runCatching { CustomAppReadJsonParser.parse(response.response) }
                         val currentUiState = _uiState.value
-                        val updatedHistory = currentUiState.evaluationHistory + result
-                        val accuracy =
-                            if (updatedHistory.isEmpty()) null
-                            else updatedHistory.count { it.isCorrect }.toFloat() / updatedHistory.size.toFloat()
+                        val evaluationSummary =
+                            CustomAppEvaluator.evaluate(
+                                parsedPrediction = parseResult.getOrNull(),
+                                goldRecords = currentUiState.goldRecords,
+                                priorResults = currentUiState.evaluationHistory,
+                                parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                                goldRecordHint = record,
+                            )
+                        val updatedHistory =
+                            evaluationSummary.latestResult?.let { latest ->
+                                currentUiState.evaluationHistory.filterNot {
+                                    it.uniqueIdx == latest.uniqueIdx
+                                } + latest
+                            } ?: currentUiState.evaluationHistory
+                        val isFailed =
+                            parseResult.isFailure || evaluationSummary.errorMessage != null
+                        val shouldMeasureMetrics = !isFailed
+                        val latestResult = evaluationSummary.latestResult
+                        persistedResults +=
+                            PersistedBatchCaseResult(
+                                uniqueIdx = record.uniqueIdx,
+                                query = record.query,
+                                rewritedQuery = record.rewritedQuery,
+                                goldAnswer = record.answer,
+                                generated = response.response,
+                                parseSuccess = parseResult.isSuccess,
+                                planCorrect = latestResult?.isPlanCorrect ?: false,
+                                argumentsCorrect = latestResult?.isArgumentsCorrect ?: false,
+                                allCorrect = latestResult?.isCorrect ?: false,
+                                prefillTokensPerSec = response.prefillSpeed,
+                                generationTokensPerSec = response.generationSpeed,
+                                overallTokensPerSec =
+                                    computeOverallTokensPerSec(
+                                        promptTokens = response.promptTokenCount,
+                                        generatedTokens = response.generatedTokenCount,
+                                        totalTimeMs = response.totalTimeMs,
+                                    ),
+                                prefillTimeMs = response.prefillTimeMs,
+                                generationTimeMs = response.generationTimeMs,
+                                totalTimeMs = response.totalTimeMs,
+                                promptTokens = response.promptTokenCount,
+                                generatedTokens = response.generatedTokenCount,
+                                status =
+                                    when {
+                                        parseResult.isFailure -> "parse_failed"
+                                        evaluationSummary.errorMessage != null -> "evaluation_failed"
+                                        else -> "success"
+                                    },
+                                errorMessage =
+                                    evaluationSummary.errorMessage
+                                        ?: parseResult.exceptionOrNull()?.message
+                                        ?: "",
+                                evaluatedAt = nowIsoString(),
+                            )
+
                         val batchOutputMessage =
                             ChatMessage(
-                                id = -((index + 1).toLong()),
+                                id = -(persistedResults.size.toLong()),
                                 chatId = tempChat.id,
-                                message = predicted,
+                                message = response.response,
                                 isUserMessage = false,
                             )
 
@@ -271,57 +328,39 @@ class CustomAppRmaViewModel(
                                 promptTokenCount = response.promptTokenCount,
                                 generatedTokenCount = response.generatedTokenCount,
                                 contextLengthUsed = response.contextLengthUsed,
+                                parsedPrediction = parseResult.getOrNull(),
+                                parseErrorMessage = parseResult.exceptionOrNull()?.message,
+                                latestRawModelOutput = response.response,
                                 batchConversationMessages = currentUiState.batchConversationMessages + batchOutputMessage,
                                 evaluationHistory = updatedHistory,
-                                latestEvaluationResult = result,
-                                exactMatchAccuracy = accuracy,
-                                batchCompletedCount = index + 1,
+                                latestEvaluationResult = evaluationSummary.latestResult,
+                                macroAccuracy = evaluationSummary.macroAccuracy,
+                                evaluationErrorMessage = evaluationSummary.errorMessage,
+                                batchCompletedCount = persistedResults.size,
                                 batchFailedCount =
-                                    if (result.isCorrect) currentUiState.batchFailedCount
-                                    else currentUiState.batchFailedCount + 1,
+                                    if (isFailed) currentUiState.batchFailedCount + 1
+                                    else currentUiState.batchFailedCount,
                                 batchTotalPrefillTimeMs =
-                                    currentUiState.batchTotalPrefillTimeMs + response.prefillTimeMs,
+                                    currentUiState.batchTotalPrefillTimeMs +
+                                        if (shouldMeasureMetrics) response.prefillTimeMs else 0,
                                 batchTotalGenerationTimeMs =
-                                    currentUiState.batchTotalGenerationTimeMs + response.generationTimeMs,
+                                    currentUiState.batchTotalGenerationTimeMs +
+                                        if (shouldMeasureMetrics) response.generationTimeMs else 0,
                                 batchTotalGeneratedTokens =
-                                    currentUiState.batchTotalGeneratedTokens + response.generatedTokenCount,
+                                    currentUiState.batchTotalGeneratedTokens +
+                                        if (shouldMeasureMetrics) response.generatedTokenCount else 0,
                                 batchGenerationSpeedSum =
-                                    currentUiState.batchGenerationSpeedSum + response.generationSpeed,
+                                    currentUiState.batchGenerationSpeedSum +
+                                        if (shouldMeasureMetrics) response.generationSpeed else 0f,
                                 batchPrefillSpeedSum =
-                                    currentUiState.batchPrefillSpeedSum + response.prefillSpeed,
+                                    currentUiState.batchPrefillSpeedSum +
+                                        if (shouldMeasureMetrics) response.prefillSpeed else 0f,
+                                batchMeasuredCount =
+                                    currentUiState.batchMeasuredCount + if (shouldMeasureMetrics) 1 else 0,
                                 batchStatusMessage =
-                                    "Completed ${index + 1}/${selectedRows.size}: ${record.uniqueIdx}",
+                                    "Completed ${persistedResults.size}/${selectedRows.size}: ${record.uniqueIdx}",
                             )
                         }
-
-                        persistedResults +=
-                            PersistedBatchCaseResult(
-                                uniqueIdx = record.uniqueIdx,
-                                query = record.query,
-                                rewritedQuery = record.rewritedQuery,
-                                goldAnswer = record.rewritedQuery,
-                                generated = predicted,
-                                parseSuccess = true,
-                                planCorrect = result.isCorrect,
-                                argumentsCorrect = result.isCorrect,
-                                allCorrect = result.isCorrect,
-                                prefillTokensPerSec = response.prefillSpeed,
-                                generationTokensPerSec = response.generationSpeed,
-                                overallTokensPerSec =
-                                    computeOverallTokensPerSec(
-                                        promptTokens = response.promptTokenCount,
-                                        generatedTokens = response.generatedTokenCount,
-                                        totalTimeMs = response.totalTimeMs,
-                                    ),
-                                prefillTimeMs = response.prefillTimeMs,
-                                generationTimeMs = response.generationTimeMs,
-                                totalTimeMs = response.totalTimeMs,
-                                promptTokens = response.promptTokenCount,
-                                generatedTokens = response.generatedTokenCount,
-                                status = if (result.isCorrect) "success" else "evaluation_failed",
-                                errorMessage = if (result.isCorrect) "" else "Rewrite mismatch",
-                                evaluatedAt = nowIsoString(),
-                            )
 
                         if (persistedResults.size % 10 == 0) {
                             flushBatchExport(
@@ -332,7 +371,7 @@ class CustomAppRmaViewModel(
                                 selectedRowCount = selectedRows.size,
                                 batchMode = currentState.selectedBatchRunMode,
                                 promptTemplate = promptTemplate,
-                                exactMatchAccuracy = accuracy,
+                                macroAccuracy = evaluationSummary.macroAccuracy,
                                 failedRows = persistedResults.count { it.status != "success" },
                                 runCreatedAt = runCreatedAt,
                             )
@@ -354,7 +393,7 @@ class CustomAppRmaViewModel(
                         selectedRowCount = selectedRows.size,
                         batchMode = currentState.selectedBatchRunMode,
                         promptTemplate = promptTemplate,
-                        exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                        macroAccuracy = _uiState.value.macroAccuracy,
                         failedRows = persistedResults.count { it.status != "success" },
                         runCreatedAt = runCreatedAt,
                     )
@@ -362,8 +401,8 @@ class CustomAppRmaViewModel(
                     _uiState.update {
                         it.copy(
                             isBatchRunning = false,
-                            batchStatusMessage = "RMA batch run finished.",
-                            statusMessage = "RMA batch run finished.",
+                            batchStatusMessage = "READ batch run finished.",
+                            statusMessage = "READ batch run finished.",
                             batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
@@ -377,7 +416,7 @@ class CustomAppRmaViewModel(
                             selectedRowCount = selectedRows.size,
                             batchMode = currentState.selectedBatchRunMode,
                             promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, ""),
-                            exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                            macroAccuracy = _uiState.value.macroAccuracy,
                             failedRows = persistedResults.count { it.status != "success" },
                             runCreatedAt = runCreatedAt,
                         )
@@ -386,8 +425,8 @@ class CustomAppRmaViewModel(
                         it.copy(
                             isBatchRunning = false,
                             isBatchStopping = false,
-                            batchStatusMessage = "RMA batch run stopped.",
-                            statusMessage = "RMA batch run stopped.",
+                            batchStatusMessage = "READ batch run stopped.",
+                            statusMessage = "READ batch run stopped.",
                             errorMessage = null,
                             batchLastFlushCompletedCount = persistedResults.size,
                         )
@@ -402,7 +441,7 @@ class CustomAppRmaViewModel(
                             selectedRowCount = selectedRows.size,
                             batchMode = currentState.selectedBatchRunMode,
                             promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, ""),
-                            exactMatchAccuracy = _uiState.value.exactMatchAccuracy,
+                            macroAccuracy = _uiState.value.macroAccuracy,
                             failedRows = persistedResults.count { it.status != "success" },
                             runCreatedAt = runCreatedAt,
                         )
@@ -412,7 +451,7 @@ class CustomAppRmaViewModel(
                             isBatchRunning = false,
                             isBatchStopping = false,
                             batchStatusMessage = null,
-                            errorMessage = error.message ?: "RMA batch run failed.",
+                            errorMessage = error.message ?: "READ batch run failed.",
                             batchLastFlushCompletedCount = persistedResults.size,
                         )
                     }
@@ -439,7 +478,7 @@ class CustomAppRmaViewModel(
         _uiState.update {
             it.copy(
                 isBatchStopping = true,
-                batchStatusMessage = "Stopping RMA batch run...",
+                batchStatusMessage = "Stopping READ batch run...",
                 statusMessage = null,
                 errorMessage = null,
             )
@@ -479,9 +518,32 @@ class CustomAppRmaViewModel(
                 batchSummaryFilePath = null,
                 batchLastFlushCompletedCount = 0,
                 batchIsResumed = false,
+                parsedPrediction = null,
+                parseErrorMessage = null,
+                latestRawModelOutput = null,
                 evaluationHistory = emptyList(),
                 latestEvaluationResult = null,
-                exactMatchAccuracy = null,
+                macroAccuracy = null,
+                evaluationErrorMessage = null,
+                generationSpeedTokensPerSec = null,
+                prefillSpeedTokensPerSec = null,
+                prefillTimeMs = null,
+                generationTimeMs = null,
+                totalTimeMs = null,
+                promptTokenCount = null,
+                generatedTokenCount = null,
+                contextLengthUsed = null,
+                batchTotalCount = 0,
+                batchCompletedCount = 0,
+                batchFailedCount = 0,
+                batchLatestUniqueIdx = null,
+                batchStatusMessage = null,
+                batchTotalPrefillTimeMs = 0,
+                batchTotalGenerationTimeMs = 0,
+                batchTotalGeneratedTokens = 0,
+                batchGenerationSpeedSum = 0f,
+                batchPrefillSpeedSum = 0f,
+                batchMeasuredCount = 0,
                 statusMessage = "Saved batch results deleted. The next run will start fresh.",
                 errorMessage = null,
             )
@@ -511,11 +573,24 @@ class CustomAppRmaViewModel(
                 else runCatching { CustomAppTsvLoader.load(goldTsvPath) }
             val systemPrompt = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "")
             val selectedPromptPresetKey =
-                sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_RMA_QWEN3)
+                sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_READ_QWEN3).let { storedKey ->
+                    when (storedKey) {
+                        PROMPT_PRESET_READ_QWEN3,
+                        -> storedKey
+                        else -> PROMPT_PRESET_READ_QWEN3
+                    }
+                }
             val goldRecords = goldTsvLoadResult.getOrDefault(emptyList())
+            val apiMetadataByPlan = runCatching { apiMetadataAssetStore.getAllSimple() }.getOrDefault(emptyMap())
             val previewResult =
                 runCatching {
-                    goldRecords.firstOrNull()?.let { CustomAppRmaPromptRenderer.render(systemPrompt, it) }
+                    goldRecords.firstOrNull()?.let {
+                        CustomAppReadPromptRenderer.render(
+                            template = systemPrompt,
+                            record = it,
+                            apiMetadataByPlan = apiMetadataByPlan,
+                        )
+                    }
                 }
 
             withContext(Dispatchers.Main) {
@@ -527,8 +602,11 @@ class CustomAppRmaViewModel(
                         goldTsvName = goldTsvName,
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
                         selectedBatchRunMode = sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1),
-                        renderedRmaPromptPreview = previewResult.getOrNull(),
-                        rmaPromptPreviewError = previewResult.exceptionOrNull()?.message,
+                        renderedReadPromptPreview = previewResult.getOrNull()?.prompt,
+                        readPromptPreviewError = previewResult.exceptionOrNull()?.message,
+                        renderedToolsMissingPlans = previewResult.getOrNull()?.missingPlans ?: emptyList(),
+                        renderedToolsCandidateCount = previewResult.getOrNull()?.parsedCandidateCount ?: 0,
+                        renderedToolsCount = previewResult.getOrNull()?.renderedToolCount ?: 0,
                     )
                 }
             }
@@ -548,7 +626,7 @@ class CustomAppRmaViewModel(
 
     private fun createBatchChat(selectedModel: LLMModel): Chat =
         appDB.addChat(
-            chatName = "RMA Batch Session",
+            chatName = "READ Batch Session",
             chatTemplate = selectedModel.chatTemplate,
             systemPrompt = "",
             llmModelId = selectedModel.id,
@@ -604,7 +682,7 @@ class CustomAppRmaViewModel(
                 },
                 onCancelled = {
                     if (continuation.isActive) {
-                        continuation.resumeWithException(IllegalStateException("RMA batch run cancelled."))
+                        continuation.resumeWithException(IllegalStateException("READ batch run cancelled."))
                     }
                 },
                 onError = { error ->
@@ -626,7 +704,7 @@ class CustomAppRmaViewModel(
         selectedRowCount: Int,
         batchMode: String,
         promptTemplate: String,
-        exactMatchAccuracy: Float?,
+        macroAccuracy: Float?,
         failedRows: Int,
         runCreatedAt: String,
     ) {
@@ -648,7 +726,7 @@ class CustomAppRmaViewModel(
                         resumeSkippedRows = 0,
                         completedRows = rows.size,
                         failedRows = failedRows,
-                        macroAccuracy = exactMatchAccuracy,
+                        macroAccuracy = macroAccuracy,
                         avgPrefillTokensPerSec = measuredRows.map { it.prefillTokensPerSec }.averageOrNull(),
                         avgGenerationTokensPerSec = measuredRows.map { it.generationTokensPerSec }.averageOrNull(),
                         avgOverallTokensPerSec = measuredRows.map { it.overallTokensPerSec }.averageOrNull(),

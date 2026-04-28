@@ -4,6 +4,7 @@ import java.io.File
 
 data class GoldTsvRecord(
     val conversationHistory: String,
+    val referenceTurn: String,
     val query: String,
     val rewritedQuery: String,
     val answer: String,
@@ -49,6 +50,11 @@ object CustomAppTsvLoader {
 
                 fun value(name: String): String = cells[columnIndex.getValue(name)].trim()
 
+                fun optionalValue(name: String): String =
+                    columnIndex[name]?.let { index ->
+                        cells.getOrNull(index)?.trim().orEmpty()
+                    }.orEmpty()
+
                 val uniqueIdx = value("unique_idx")
                 val answer = value("answer")
 
@@ -61,6 +67,7 @@ object CustomAppTsvLoader {
                 records +=
                     GoldTsvRecord(
                         conversationHistory = value("conversation_history"),
+                        referenceTurn = optionalValue("reference_turn"),
                         query = value("query"),
                         rewritedQuery = value("rewrited_query"),
                         answer = answer,

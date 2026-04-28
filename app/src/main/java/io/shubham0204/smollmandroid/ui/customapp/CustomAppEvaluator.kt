@@ -28,7 +28,7 @@ object CustomAppEvaluator {
     private val compactJson = Json { prettyPrint = false }
 
     fun evaluate(
-        parsedPrediction: ParsedToolCall?,
+        parsedPrediction: EvaluatableToolCall?,
         goldRecords: List<GoldTsvRecord>,
         priorResults: List<EvaluationResult>,
         parseErrorMessage: String?,
@@ -118,7 +118,7 @@ object CustomAppEvaluator {
         return perClassAccuracies.average().toFloat()
     }
 
-    private fun canonicalizeToolCall(toolCall: ParsedToolCall): JsonObject =
+    private fun canonicalizeToolCall(toolCall: EvaluatableToolCall): JsonObject =
         buildJsonObject {
             put("arguments", canonicalizeElement(toolCall.arguments))
             put("plan", JsonPrimitive(toolCall.plan))

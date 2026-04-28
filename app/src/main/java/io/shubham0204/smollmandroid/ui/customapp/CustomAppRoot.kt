@@ -58,8 +58,7 @@ import java.io.File
 private object CustomAppRoutes {
     const val Setup = "setup"
     const val ChatEvaluate = "chat_evaluate"
-    const val RmaEvaluate = "rma_evaluate"
-    const val E2eEvaluate = "e2e_evaluate"
+    const val ReadEvaluate = "read_evaluate"
 }
 
 @Composable
@@ -76,8 +75,7 @@ fun CustomAppRoot() {
                 viewModel = viewModel,
                 onContinue = { testType ->
                     when (testType) {
-                        TEST_TYPE_RMA -> navController.navigate(CustomAppRoutes.RmaEvaluate)
-                        TEST_TYPE_E2E -> navController.navigate(CustomAppRoutes.E2eEvaluate)
+                        TEST_TYPE_READ -> navController.navigate(CustomAppRoutes.ReadEvaluate)
                         else -> navController.navigate(CustomAppRoutes.ChatEvaluate)
                     }
                 }
@@ -90,16 +88,9 @@ fun CustomAppRoot() {
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(CustomAppRoutes.RmaEvaluate) {
-            val viewModel: CustomAppRmaViewModel = koinViewModel()
-            RmaEvaluatePlaceholderScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() },
-            )
-        }
-        composable(CustomAppRoutes.E2eEvaluate) {
-            val viewModel: CustomAppE2eViewModel = koinViewModel()
-            E2eEvaluateScreen(
+        composable(CustomAppRoutes.ReadEvaluate) {
+            val viewModel: CustomAppReadViewModel = koinViewModel()
+            ReadEvaluateScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
             )
@@ -168,7 +159,7 @@ private fun SetupPlaceholderScreen(
                 }
             }
 
-            SectionCard(title = "Prompt And Parameters") {
+            SectionCard(title = "Qwen Prompt") {
                 Text(
                     text = "Test type",
                     style = MaterialTheme.typography.labelLarge,
@@ -190,51 +181,18 @@ private fun SetupPlaceholderScreen(
                 Text(
                     text =
                         when (uiState.selectedTestType) {
-                            TEST_TYPE_RMA -> "RMA model"
-                            TEST_TYPE_E2E -> "E2E pipeline"
-                            else -> "Toolcalling model"
+                            TEST_TYPE_READ -> "READ uses the READ-Qwen prompt."
+                            else -> "Baseline uses the Baseline-Qwen prompt."
                         },
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
-                val evaluatorOptions =
-                    when (uiState.selectedTestType) {
-                        TEST_TYPE_RMA -> rmaPromptPresetOptions
-                        TEST_TYPE_E2E -> e2ePipelineOptions
-                        else -> toolcallingPromptPresetOptions
-                    }
-                evaluatorOptions.chunked(2).forEach { rowOptions ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        rowOptions.forEach { preset ->
-                            PromptPresetButton(
-                                label = preset.label,
-                                selected = uiState.selectedPromptPresetKey == preset.key,
-                                onClick = { viewModel.selectPromptPreset(preset.key) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        if (rowOptions.size < 2) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-                if (uiState.selectedTestType == TEST_TYPE_E2E) {
-                    Text(
-                        text = "E2E uses the selected pipeline configuration. Dedicated routing and evaluator wiring will be added in the next task.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = uiState.systemPrompt,
-                        onValueChange = viewModel::updateSystemPrompt,
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 3,
-                        label = { Text("System prompt") },
-                    )
-                }
+                OutlinedTextField(
+                    value = uiState.systemPrompt,
+                    onValueChange = viewModel::updateSystemPrompt,
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    label = { Text("System prompt") },
+                )
                 OutlinedTextField(
                     value = uiState.temperatureText,
                     onValueChange = viewModel::updateTemperature,
@@ -312,9 +270,8 @@ private fun SetupPlaceholderScreen(
             ) {
                 Text(
                     when (uiState.selectedTestType) {
-                        TEST_TYPE_RMA -> "Open RMA Flow"
-                        TEST_TYPE_E2E -> "Open E2E Flow"
-                        else -> "Open Chat Flow"
+                        TEST_TYPE_READ -> "Open READ Flow"
+                        else -> "Open Baseline Flow"
                     },
                 )
             }
@@ -324,265 +281,8 @@ private fun SetupPlaceholderScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun E2eEvaluateScreen(
-    viewModel: CustomAppE2eViewModel,
-    onBack: () -> Unit,
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("E2E Evaluate") },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text("Back")
-                    }
-                },
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SectionCard(title = "Pipeline") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    e2ePipelineOptions.forEach { option ->
-                        PromptPresetButton(
-                            label = option.label,
-                            selected = uiState.selectedPipelineKey == option.key,
-                            onClick = { viewModel.selectPipeline(option.key) },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-                MetricRow(
-                    label = "Selected pipeline",
-                    value =
-                        e2ePipelineOptions.firstOrNull { it.key == uiState.selectedPipelineKey }?.label
-                            ?: "N/A",
-                )
-            }
-
-            SectionCard(title = "Models") {
-                Text(
-                    text = "RMA model",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (uiState.availableRmaModels.isEmpty()) {
-                    Text(
-                        text = "No imported models matched the selected pipeline family.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    uiState.availableRmaModels.forEach { model ->
-                        ModelSelectionRow(
-                            model = model,
-                            isSelected = model.id == uiState.selectedRmaModelId,
-                            onSelect = { viewModel.selectRmaModel(model.id) },
-                        )
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Text(
-                    text = "Toolcalling model",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                if (uiState.availableToolModels.isEmpty()) {
-                    Text(
-                        text = "No imported models matched the selected pipeline family.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                } else {
-                    uiState.availableToolModels.forEach { model ->
-                        ModelSelectionRow(
-                            model = model,
-                            isSelected = model.id == uiState.selectedToolModelId,
-                            onSelect = { viewModel.selectToolModel(model.id) },
-                        )
-                    }
-                }
-            }
-
-            SectionCard(title = "Gold TSV") {
-                MetricRow(label = "Selected TSV", value = uiState.goldTsvName.ifBlank { "N/A" })
-                MetricRow(label = "Loaded records", value = uiState.goldRecords.size.toString())
-                uiState.goldTsvLoadError?.let {
-                    Text(
-                        text = "TSV load failed: $it",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-            }
-
-            SectionCard(title = "Batch Run Mode") {
-                batchRunModeOptions.forEach { option ->
-                    RadioSelectionRow(
-                        label = option.label,
-                        selected = uiState.selectedBatchRunMode == option.key,
-                        onSelect = { viewModel.selectBatchRunMode(option.key) },
-                    )
-                    Text(
-                        text = option.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 48.dp, bottom = 4.dp),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = viewModel::startBatchRun,
-                        enabled = uiState.canRun,
-                    ) {
-                        Text("Start E2E Batch")
-                    }
-                    TextButton(
-                        onClick = viewModel::stopBatchRun,
-                        enabled = uiState.isBatchRunning,
-                    ) {
-                        Text("Stop")
-                    }
-                }
-            }
-
-            SectionCard(title = "Latest Outputs") {
-                MetricRow(label = "Latest row", value = uiState.batchLatestUniqueIdx ?: "N/A")
-                Text(
-                    text = "Intermediate rewrite",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = uiState.latestIntermediateRewrite ?: "N/A",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Text(
-                    text = "Final tool output",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = uiState.latestFinalToolOutput ?: "N/A",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            SectionCard(title = "Final Evaluation") {
-                MetricRow(
-                    label = "Evaluated samples",
-                    value = uiState.evaluationHistory.size.toString(),
-                )
-                MetricRow(
-                    label = "Macro Accuracy",
-                    value = uiState.macroAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
-                )
-                uiState.latestEvaluationResult?.let { result ->
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    MetricRow(label = "Latest row", value = result.uniqueIdx)
-                    MetricRow(label = "Correct", value = if (result.isCorrect) "Yes" else "No")
-                    Text(
-                        text = "Predicted tool call",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = result.predictedAnswer,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    Text(
-                        text = "Gold tool call",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = result.goldAnswer,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                uiState.evaluationErrorMessage?.let { error ->
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            SectionCard(title = "Batch Summary") {
-                MetricRow(
-                    label = "Batch state",
-                    value =
-                        when {
-                            uiState.isBatchRunning -> "Running"
-                            uiState.batchCompletedCount > 0 -> "Completed"
-                            else -> "Idle"
-                        },
-                )
-                MetricRow(
-                    label = "Progress",
-                    value = "${uiState.batchCompletedCount}/${uiState.batchTotalCount} (${uiState.batchCompletionPercent}%)",
-                )
-                MetricRow(label = "Failed rows", value = uiState.batchFailedCount.toString())
-                uiState.batchStatusMessage?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-
-            SectionCard(title = "Conversation") {
-                if (uiState.conversationMessages.isEmpty()) {
-                    Text(
-                        text = "No E2E outputs yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    uiState.conversationMessages.forEach { message ->
-                        MessageCard(message = message)
-                    }
-                }
-                if (uiState.partialResponse.isNotBlank()) {
-                    MessageCard(
-                        message =
-                            ChatMessage(
-                                id = Long.MIN_VALUE + 1,
-                                chatId = -1L,
-                                message = uiState.partialResponse,
-                                isUserMessage = false,
-                            )
-                    )
-                }
-            }
-
-            uiState.errorMessage?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun RmaEvaluatePlaceholderScreen(
-    viewModel: CustomAppRmaViewModel,
+private fun ReadEvaluateScreen(
+    viewModel: CustomAppReadViewModel,
     onBack: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -591,7 +291,7 @@ private fun RmaEvaluatePlaceholderScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("RMA Evaluate") },
+                title = { Text("READ Evaluate") },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
                         Text("Back")
@@ -616,8 +316,7 @@ private fun RmaEvaluatePlaceholderScreen(
                 Text(
                     text =
                         when (uiState.selectedPromptPresetKey) {
-                            PROMPT_PRESET_RMA_QWEN3 -> "Preset: Qwen3-RMA"
-                            PROMPT_PRESET_RMA_PHI -> "Preset: Phi-RMA"
+                            PROMPT_PRESET_READ_QWEN3 -> "Preset: READ-Qwen"
                             else -> "Preset: ${uiState.selectedPromptPresetKey}"
                         },
                     style = MaterialTheme.typography.bodyMedium,
@@ -658,12 +357,12 @@ private fun RmaEvaluatePlaceholderScreen(
                 }
             }
 
-            SectionCard(title = "RMA Prompt Preview") {
+            SectionCard(title = "READ Prompt Preview") {
                 Text(
-                    text = "Prompt rendering follows the Python RMA preprocessing shape.",
+                    text = "Prompt rendering follows the READ one-shot input shape.",
                     style = MaterialTheme.typography.bodySmall,
                 )
-                uiState.renderedRmaPromptPreview?.let { preview ->
+                uiState.renderedReadPromptPreview?.let { preview ->
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Text(
                         text = "Rendered prompt preview",
@@ -675,9 +374,33 @@ private fun RmaEvaluatePlaceholderScreen(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                uiState.rmaPromptPreviewError?.let { error ->
+                uiState.readPromptPreviewError?.let { error ->
                     Text(
                         text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+
+            SectionCard(title = "Tools Diagnostics") {
+                MetricRow(
+                    label = "Parsed candidates",
+                    value = uiState.renderedToolsCandidateCount.toString(),
+                )
+                MetricRow(
+                    label = "Rendered tools",
+                    value = uiState.renderedToolsCount.toString(),
+                )
+                MetricRow(
+                    label = "Missing plans",
+                    value =
+                        if (uiState.renderedToolsMissingPlans.isEmpty()) "0"
+                        else uiState.renderedToolsMissingPlans.size.toString(),
+                )
+                if (uiState.renderedToolsMissingPlans.isNotEmpty()) {
+                    Text(
+                        text = uiState.renderedToolsMissingPlans.joinToString(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -724,7 +447,7 @@ private fun RmaEvaluatePlaceholderScreen(
                         onClick = viewModel::startBatchRun,
                         enabled = uiState.goldRecords.isNotEmpty() && !uiState.isBatchRunning,
                     ) {
-                        Text("Start RMA Batch")
+                        Text("Start READ Batch")
                     }
                     TextButton(
                         onClick = viewModel::stopBatchRun,
@@ -735,31 +458,77 @@ private fun RmaEvaluatePlaceholderScreen(
                 }
             }
 
+            SectionCard(title = "Parse Result") {
+                uiState.parsedPrediction?.let { parsedPrediction ->
+                    MetricRow(label = "rewrited_query", value = parsedPrediction.rewritedQuery)
+                    MetricRow(label = "plan", value = parsedPrediction.plan)
+                    Text(
+                        text = "arguments",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = parsedPrediction.argumentsAsDisplayString(),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } ?: uiState.parseErrorMessage?.let { parseError ->
+                    Text(
+                        text = "Parse failed: $parseError",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    uiState.latestRawModelOutput?.let { raw ->
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            text = "Latest raw output",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = raw,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                } ?: Text(
+                    text = "No parsed READ output yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
             SectionCard(title = "Evaluation") {
                 MetricRow(
-                    label = "Exact match accuracy",
-                    value = uiState.exactMatchAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
+                    label = "Macro Accuracy",
+                    value = uiState.macroAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
                 )
                 MetricRow(
                     label = "Evaluated samples",
                     value = uiState.evaluationHistory.size.toString(),
                 )
+                Text(
+                    text = "READ evaluation ignores rewrited_query and compares only plan plus arguments.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
                 uiState.latestEvaluationResult?.let { result ->
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     MetricRow(label = "Latest row", value = result.uniqueIdx)
-                    MetricRow(label = "Correct", value = if (result.isCorrect) "Yes" else "No")
+                    MetricRow(label = "Plan correct", value = if (result.isPlanCorrect) "Yes" else "No")
+                    MetricRow(
+                        label = "Arguments correct",
+                        value = if (result.isArgumentsCorrect) "Yes" else "No",
+                    )
+                    MetricRow(label = "Exact match", value = if (result.isCorrect) "Yes" else "No")
                     Text(
-                        text = "Predicted rewrite",
+                        text = "Predicted tool call",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(text = result.predictedRewrite, style = MaterialTheme.typography.bodySmall)
+                    Text(text = result.predictedAnswer, style = MaterialTheme.typography.bodySmall)
                     Text(
-                        text = "Gold rewrite",
+                        text = "Gold tool call",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(text = result.goldRewrite, style = MaterialTheme.typography.bodySmall)
+                    Text(text = result.goldAnswer, style = MaterialTheme.typography.bodySmall)
                 }
                 uiState.evaluationErrorMessage?.let { error ->
                     Text(
@@ -793,8 +562,8 @@ private fun RmaEvaluatePlaceholderScreen(
                     value = uiState.evaluationHistory.size.toString(),
                 )
                 MetricRow(
-                    label = "Exact match accuracy",
-                    value = uiState.exactMatchAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
+                    label = "Macro Accuracy",
+                    value = uiState.macroAccuracy?.let { "${"%.4f".format(it)}" } ?: "N/A",
                 )
                 if (showMetricDetails) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
@@ -854,7 +623,7 @@ private fun RmaEvaluatePlaceholderScreen(
             SectionCard(title = "Conversation") {
                 if (uiState.conversationMessages.isEmpty()) {
                     Text(
-                        text = "No RMA outputs yet.",
+                        text = "No READ outputs yet.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
@@ -873,6 +642,13 @@ private fun RmaEvaluatePlaceholderScreen(
                             )
                     )
                 }
+            }
+
+            uiState.statusMessage?.let {
+                Text(text = it, color = MaterialTheme.colorScheme.primary)
+            }
+            uiState.errorMessage?.let {
+                Text(text = it, color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -912,7 +688,7 @@ private fun ChatEvaluatePlaceholderScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Chat And Evaluate") },
+                title = { Text("Baseline Evaluate") },
                 navigationIcon = {
                     TextButton(onClick = onBack) {
                         Text("Back")
@@ -937,6 +713,10 @@ private fun ChatEvaluatePlaceholderScreen(
             SectionCard(title = "Session") {
                 Text(
                     text = "Model: ${uiState.selectedModel?.name ?: "Not loaded"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = "Prompt: Baseline-Qwen",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(

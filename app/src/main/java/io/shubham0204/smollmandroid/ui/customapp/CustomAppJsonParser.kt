@@ -7,13 +7,17 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
+interface EvaluatableToolCall {
+    val plan: String
+    val arguments: JsonObject
+}
+
 data class ParsedToolCall(
-    val plan: String,
-    val arguments: JsonObject,
-) {
+    override val plan: String,
+    override val arguments: JsonObject,
+) : EvaluatableToolCall {
     fun argumentsAsDisplayString(): String = prettyJson.encodeToString(JsonObject.serializer(), arguments)
 
     companion object {
@@ -21,13 +25,13 @@ data class ParsedToolCall(
     }
 }
 
-object CustomAppJsonParser {
+internal object CustomAppJsonObjectParser {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = false
     }
 
-    fun parse(rawResponse: String): ParsedToolCall {
+    fun parse(rawResponse: String): JsonObject {
         val strictFailure =
             try {
                 return parseStrictJson(rawResponse)
@@ -45,254 +49,250 @@ object CustomAppJsonParser {
         }
     }
 
-    private fun parseStrictJson(rawResponse: String): ParsedToolCall {
+    private fun parseStrictJson(rawResponse: String): JsonObject {
         val element = json.parseToJsonElement(rawResponse)
-        val jsonObject =
-            element as? JsonObject
-                ?: throw IllegalArgumentException("Model output must be a single JSON object.")
-        return jsonObject.toParsedToolCall()
+        return element as? JsonObject
+            ?: throw IllegalArgumentException("Model output must be a single JSON object.")
     }
 
-    private fun parseQuotedObjectFallback(rawResponse: String): ParsedToolCall {
+    private fun parseQuotedObjectFallback(rawResponse: String): JsonObject {
         val parser = PythonLikeParser(rawResponse)
         val element = parser.parseValue()
         parser.ensureFullyConsumed()
-        val jsonObject =
-            element as? JsonObject
-                ?: throw IllegalArgumentException("Model output must be a single quoted object.")
-        return jsonObject.toParsedToolCall()
+        return element as? JsonObject
+            ?: throw IllegalArgumentException("Model output must be a single quoted object.")
     }
+}
 
-    private fun JsonObject.toParsedToolCall(): ParsedToolCall {
-        val plan = requiredString("plan")
-        val arguments =
-            this["arguments"] as? JsonObject
-                ?: throw IllegalArgumentException("Field 'arguments' must be an object.")
+object CustomAppJsonParser {
+    fun parse(rawResponse: String): ParsedToolCall {
+        val jsonObject = CustomAppJsonObjectParser.parse(rawResponse)
         return ParsedToolCall(
-            plan = plan,
-            arguments = arguments,
+            plan = jsonObject.requiredStringField("plan"),
+            arguments = jsonObject.requiredObjectField("arguments"),
         )
     }
+}
 
-    private fun JsonObject.requiredString(key: String): String {
-        val value =
-            this[key] as? JsonPrimitive
-                ?: throw IllegalArgumentException("Missing or invalid '$key' field.")
-        if (!value.isString) {
-            throw IllegalArgumentException("Field '$key' must be a string.")
+internal fun JsonObject.requiredStringField(key: String): String {
+    val value =
+        this[key] as? JsonPrimitive
+            ?: throw IllegalArgumentException("Missing or invalid '$key' field.")
+    if (!value.isString) {
+        throw IllegalArgumentException("Field '$key' must be a string.")
+    }
+    return value.jsonPrimitive.content
+}
+
+internal fun JsonObject.requiredObjectField(key: String): JsonObject =
+    this[key] as? JsonObject
+        ?: throw IllegalArgumentException("Field '$key' must be an object.")
+
+private class PythonLikeParser(
+    raw: String,
+) {
+    private val input = raw.trim()
+    private var index = 0
+
+    fun parseValue(): JsonElement {
+        skipWhitespace()
+        if (index >= input.length) {
+            throw IllegalArgumentException("Unexpected end of input.")
         }
-        return value.jsonPrimitive.content
+
+        return when (val current = input[index]) {
+            '{' -> parseObject()
+            '[' -> parseArray()
+            '\'', '"' -> JsonPrimitive(parseQuotedString())
+            't', 'f' -> parseBoolean()
+            'n', 'N' -> parseNull()
+            '-', in '0'..'9' -> parseNumber()
+            else -> throw IllegalArgumentException("Unexpected token '$current'.")
+        }
     }
 
-    private class PythonLikeParser(
-        raw: String,
-    ) {
-        private val input = raw.trim()
-        private var index = 0
-
-        fun parseValue(): JsonElement {
-            skipWhitespace()
-            if (index >= input.length) {
-                throw IllegalArgumentException("Unexpected end of input.")
-            }
-
-            return when (val current = input[index]) {
-                '{' -> parseObject()
-                '[' -> parseArray()
-                '\'', '"' -> JsonPrimitive(parseQuotedString())
-                't', 'f' -> parseBoolean()
-                'n', 'N' -> parseNull()
-                '-', in '0'..'9' -> parseNumber()
-                else -> throw IllegalArgumentException("Unexpected token '$current'.")
-            }
+    fun ensureFullyConsumed() {
+        skipWhitespace()
+        if (index != input.length) {
+            throw IllegalArgumentException("Unexpected trailing content after object.")
         }
+    }
 
-        fun ensureFullyConsumed() {
-            skipWhitespace()
-            if (index != input.length) {
-                throw IllegalArgumentException("Unexpected trailing content after object.")
-            }
-        }
-
-        private fun parseObject(): JsonObject {
-            expect('{')
-            skipWhitespace()
-            val content = linkedMapOf<String, JsonElement>()
-            if (peek() == '}') {
-                index++
-                return JsonObject(content)
-            }
-
-            while (true) {
-                skipWhitespace()
-                val key = parseQuotedString()
-                skipWhitespace()
-                expect(':')
-                val value = parseValue()
-                content[key] = value
-                skipWhitespace()
-                when (peek()) {
-                    ',' -> {
-                        index++
-                        continue
-                    }
-                    '}' -> {
-                        index++
-                        break
-                    }
-                    else -> throw IllegalArgumentException("Expected ',' or '}' after object entry.")
-                }
-            }
-
+    private fun parseObject(): JsonObject {
+        expect('{')
+        skipWhitespace()
+        val content = linkedMapOf<String, JsonElement>()
+        if (peek() == '}') {
+            index++
             return JsonObject(content)
         }
 
-        private fun parseArray(): JsonArray {
-            expect('[')
+        while (true) {
             skipWhitespace()
-            if (peek() == ']') {
-                index++
-                return buildJsonArray {}
-            }
-
-            val values = mutableListOf<JsonElement>()
-            while (true) {
-                values += parseValue()
-                skipWhitespace()
-                when (peek()) {
-                    ',' -> {
-                        index++
-                        continue
-                    }
-                    ']' -> {
-                        index++
-                        break
-                    }
-                    else -> throw IllegalArgumentException("Expected ',' or ']' after array item.")
+            val key = parseQuotedString()
+            skipWhitespace()
+            expect(':')
+            val value = parseValue()
+            content[key] = value
+            skipWhitespace()
+            when (peek()) {
+                ',' -> {
+                    index++
+                    continue
                 }
+                '}' -> {
+                    index++
+                    break
+                }
+                else -> throw IllegalArgumentException("Expected ',' or '}' after object entry.")
             }
-
-            return JsonArray(values)
         }
 
-        private fun parseQuotedString(): String {
-            skipWhitespace()
-            if (index >= input.length) {
-                throw IllegalArgumentException("Unexpected end of quoted string.")
-            }
+        return JsonObject(content)
+    }
 
-            val quote = input[index]
-            if (quote != '"' && quote != '\'') {
-                throw IllegalArgumentException("Expected quoted string token.")
-            }
+    private fun parseArray(): JsonArray {
+        expect('[')
+        skipWhitespace()
+        if (peek() == ']') {
             index++
-
-            val builder = StringBuilder()
-            while (index < input.length) {
-                val current = input[index]
-                when {
-                    current == '\\' -> {
-                        if (index + 1 >= input.length) {
-                            throw IllegalArgumentException("Unterminated escape sequence.")
-                        }
-                        val escaped = input[index + 1]
-                        builder.append(
-                            when (escaped) {
-                                '\\' -> '\\'
-                                '\'' -> '\''
-                                '"' -> '"'
-                                'n' -> '\n'
-                                'r' -> '\r'
-                                't' -> '\t'
-                                'b' -> '\b'
-                                'f' -> '\u000C'
-                                else -> escaped
-                            },
-                        )
-                        index += 2
-                    }
-                    current == quote -> {
-                        index++
-                        return builder.toString()
-                    }
-                    else -> {
-                        builder.append(current)
-                        index++
-                    }
-                }
-            }
-
-            throw IllegalArgumentException("Unterminated quoted string token.")
+            return buildJsonArray {}
         }
 
-        private fun parseBoolean(): JsonPrimitive {
-            return when {
-                input.startsWith("true", index) -> {
-                    index += 4
-                    JsonPrimitive(true)
+        val values = mutableListOf<JsonElement>()
+        while (true) {
+            values += parseValue()
+            skipWhitespace()
+            when (peek()) {
+                ',' -> {
+                    index++
+                    continue
                 }
-                input.startsWith("false", index) -> {
-                    index += 5
-                    JsonPrimitive(false)
+                ']' -> {
+                    index++
+                    break
                 }
-                else -> throw IllegalArgumentException("Invalid boolean token.")
+                else -> throw IllegalArgumentException("Expected ',' or ']' after array item.")
             }
         }
 
-        private fun parseNull(): JsonElement {
-            return when {
-                input.startsWith("null", index) -> {
-                    index += 4
-                    JsonNull
+        return JsonArray(values)
+    }
+
+    private fun parseQuotedString(): String {
+        skipWhitespace()
+        if (index >= input.length) {
+            throw IllegalArgumentException("Unexpected end of quoted string.")
+        }
+
+        val quote = input[index]
+        if (quote != '"' && quote != '\'') {
+            throw IllegalArgumentException("Expected quoted string token.")
+        }
+        index++
+
+        val builder = StringBuilder()
+        while (index < input.length) {
+            val current = input[index]
+            when {
+                current == '\\' -> {
+                    if (index + 1 >= input.length) {
+                        throw IllegalArgumentException("Unterminated escape sequence.")
+                    }
+                    val escaped = input[index + 1]
+                    builder.append(
+                        when (escaped) {
+                            '\\' -> '\\'
+                            '\'' -> '\''
+                            '"' -> '"'
+                            'n' -> '\n'
+                            'r' -> '\r'
+                            't' -> '\t'
+                            'b' -> '\b'
+                            'f' -> '\u000C'
+                            else -> escaped
+                        },
+                    )
+                    index += 2
                 }
-                input.startsWith("None", index) -> {
-                    index += 4
-                    JsonNull
+                current == quote -> {
+                    index++
+                    return builder.toString()
                 }
-                else -> throw IllegalArgumentException("Invalid null token.")
+                else -> {
+                    builder.append(current)
+                    index++
+                }
             }
         }
 
-        private fun parseNumber(): JsonPrimitive {
-            val start = index
-            if (input[index] == '-') {
-                index++
+        throw IllegalArgumentException("Unterminated quoted string token.")
+    }
+
+    private fun parseBoolean(): JsonPrimitive {
+        return when {
+            input.startsWith("true", index) -> {
+                index += 4
+                JsonPrimitive(true)
             }
+            input.startsWith("false", index) -> {
+                index += 5
+                JsonPrimitive(false)
+            }
+            else -> throw IllegalArgumentException("Invalid boolean token.")
+        }
+    }
+
+    private fun parseNull(): JsonElement {
+        return when {
+            input.startsWith("null", index) -> {
+                index += 4
+                JsonNull
+            }
+            input.startsWith("None", index) -> {
+                index += 4
+                JsonNull
+            }
+            else -> throw IllegalArgumentException("Invalid null token.")
+        }
+    }
+
+    private fun parseNumber(): JsonPrimitive {
+        val start = index
+        if (input[index] == '-') {
+            index++
+        }
+        while (index < input.length && input[index].isDigit()) {
+            index++
+        }
+        if (index < input.length && input[index] == '.') {
+            index++
             while (index < input.length && input[index].isDigit()) {
                 index++
             }
-            if (index < input.length && input[index] == '.') {
-                index++
-                while (index < input.length && input[index].isDigit()) {
-                    index++
-                }
-            }
-            if (index < input.length && (input[index] == 'e' || input[index] == 'E')) {
-                index++
-                if (index < input.length && (input[index] == '+' || input[index] == '-')) {
-                    index++
-                }
-                while (index < input.length && input[index].isDigit()) {
-                    index++
-                }
-            }
-            return JsonPrimitive(input.substring(start, index))
         }
+        val numberToken = input.substring(start, index)
+        return JsonPrimitive(numberToken)
+    }
 
-        private fun skipWhitespace() {
-            while (index < input.length && input[index].isWhitespace()) {
-                index++
-            }
-        }
-
-        private fun expect(expected: Char) {
-            skipWhitespace()
-            if (peek() != expected) {
-                throw IllegalArgumentException("Expected '$expected'.")
-            }
+    private fun skipWhitespace() {
+        while (index < input.length && input[index].isWhitespace()) {
             index++
         }
-
-        private fun peek(): Char? = input.getOrNull(index)
     }
+
+    private fun expect(expected: Char) {
+        skipWhitespace()
+        if (index >= input.length || input[index] != expected) {
+            throw IllegalArgumentException("Expected '$expected'.")
+        }
+        index++
+    }
+
+    private fun peek(): Char? =
+        if (index < input.length) {
+            input[index]
+        } else {
+            null
+        }
 }

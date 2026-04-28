@@ -488,7 +488,7 @@ class CustomAppChatViewModel(
                         resumeCandidate?.session
                             ?: batchResultExportStore.createSession(
                                 sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
-                                testType = "Toolcalling",
+                                testType = "Baseline",
                                 modelName = selectedModel.name,
                             )
                     if (resumeCandidate != null) {
