@@ -2,56 +2,123 @@
   <img src="app/src/main/res/drawable/read_launcher_foreground.png" alt="READEvaluator" width="320" />
 </p>
 
-# READEvaluator
+# Rewrite-Enhanced Autoregressive Decomposition (READ)
+`READEvaluator` is an Android app for evaluating on-device GGUF language models on a structured tool-calling task.
 
-## Purpose
+The app runs the full inference loop locally on the phone, reads evaluation cases from a TSV file, measures latency and token statistics inside the app, and exports reproducible batch results.
 
-This repository is an Android on-device LLM evaluator built on top of `SmolChat-Android`.
+## Task
 
-The current app supports:
+The repository focuses on a dialogue-grounded tool selection task.
 
-- `Toolcalling` evaluation
-- `RMA` rewrite evaluation
-- `E2E` evaluation
-- local GGUF model import
-- on-device inference
-- TSV-driven batch testing
-- runtime metrics, result export, and resume support
+Given:
 
-## Start Here
+- a conversation history
+- a user query
+- a candidate tool list
 
-If you are working on the current RMA Ondevice Inference App, use these docs first:
+the model must produce the correct tool plan and arguments.
 
-1. [RMA Ondevice Inference App Docs Map](docs/custom-app/README.md)
-2. [Roadmap](docs/custom-app/roadmap.md)
+The app currently supports two task modes:
 
-## Current Focus
+- `Baseline`: predicts compact JSON with `plan` and `arguments`
+- `READ`: one-shot reasoning that predicts `rewrited_query`, `plan`, and `arguments`
 
-Current project status is tracked in:
+For evaluation, both modes are scored the same way:
 
-- [Roadmap](docs/custom-app/roadmap.md)
+- exact match on `plan`
+- exact match on `arguments`
 
-That file contains:
 
-- current phase
-- current focus
-- checklist
-- change log
-- execution order
+## What The App Supports
 
-## Key Docs
+- Import and run local `GGUF` models on Android
+- Evaluate models fully on-device without a server
+- Switch between `Baseline` and `READ` task flows
+- Use bundled or custom TSV test cases
+- Preview the final rendered prompt before running a batch
+- Run TSV-driven batch evaluation over selected subsets or the full file
+- Resume interrupted batch runs
+- Export per-case results as TSV and run summaries as JSON
 
+## Metrics In The App
+
+The app records runtime metrics during inference and exposes them in the UI and export files.
+
+Single-run metrics include:
+
+- prompt length
+- generated tokens
+- prefill time
+- generation time
+- total time
+- prefill speed
+- decode speed
+- context length used
+
+Batch summary metrics include:
+
+- macro accuracy
+- average tokens as `Tokens (Prefill / Decode)`
+- average `Prefill (tok/s)`
+- average `Decode (tok/s)`
+- average prefill and generation latency
+- total generated tokens
+
+## Data And Prompting
+
+- The default bundled evaluation file is [tc.tsv](app/src/main/assets/tc.tsv)
+- Tool metadata is loaded from [simple_api.json](app/src/main/assets/simple_api.json)
+- The setup screen lets you inspect the active Qwen prompt used for the selected task
+
+Prompt behavior:
+
+- `Baseline` uses the baseline Qwen tool-calling prompt
+- `READ` uses a one-shot Qwen prompt with `rewrited_query`, `plan`, and `arguments`
+
+## Result Files
+
+Batch runs produce:
+
+- per-row TSV results with predictions, correctness flags, token counts, speeds, and latencies
+- summary JSON files with aggregate accuracy and metric averages
+
+Exports are written under the app's internal results store managed by [BatchResultExportStore.kt](app/src/main/java/io/shubham0204/smollmandroid/data/BatchResultExportStore.kt).
+
+## Build
+
+From the repo root:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+Debug APK:
+
+```bash
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+Install to a connected Android device:
+
+```bash
+./gradlew :app:installDebug
+```
+
+## Repo Map
+
+- Android evaluation flow: [app/src/main/java/io/shubham0204/smollmandroid/ui/customapp](app/src/main/java/io/shubham0204/smollmandroid/ui/customapp)
+- On-device inference engine: [smollm](smollm)
+- Batch result export logic: [BatchResultExportStore.kt](app/src/main/java/io/shubham0204/smollmandroid/data/BatchResultExportStore.kt)
+
+## Docs
+
+- [Custom App Docs Map](docs/custom-app/README.md)
 - [Architecture](docs/custom-app/architecture.md)
+- [Roadmap](docs/custom-app/roadmap.md)
 - [Batch Result Export Spec](docs/custom-app/specs/batch-result-export-spec.md)
 - [Runtime Metrics Spec](docs/custom-app/specs/runtime-metrics-spec.md)
-- [RMA Rewrite Spec](docs/custom-app/specs/rma-rewrite-spec.md)
-
-## Repo Notes
-
-- app entry and setup flow live under [ui/customapp](app/src/main/java/io/shubham0204/smollmandroid/ui/customapp)
-- on-device inference engine lives under [smollm](smollm)
-- default bundled gold TSV is [tc.tsv](app/src/main/assets/tc.tsv)
 
 ## Upstream Base
 
-This project is based on the original `SmolChat-Android` codebase, but the active development workflow is centered on the RMA Ondevice Inference App docs above rather than the original upstream README structure.
+This repository started from `SmolChat-Android`, but the active product here is the `READEvaluator` app and its on-device evaluation workflow.
