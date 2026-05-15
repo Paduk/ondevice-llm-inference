@@ -227,6 +227,12 @@ class CustomAppReadViewModel(
                 try {
                     val promptTemplate = sharedPrefStore.get(PREF_SETUP_SYSTEM_PROMPT, "")
                     val apiMetadataByPlan = apiMetadataAssetStore.getAllSimple()
+                    val effectivePromptTemplate =
+                        CustomAppMainPathPrompting.normalizeTemplateForMainPath(
+                            template = promptTemplate,
+                            presetKey = currentState.selectedPromptPresetKey,
+                            model = selectedModel,
+                        )
                     exportSession =
                         batchResultExportStore.createSession(
                             sourceTsvName = currentState.goldTsvName.ifBlank { "gold.tsv" },
@@ -244,14 +250,32 @@ class CustomAppReadViewModel(
 
                     selectedRows.forEachIndexed { _, record ->
                         val renderResult =
-                            CustomAppReadPromptRenderer.render(
-                                template = promptTemplate,
-                                record = record,
-                                apiMetadataByPlan = apiMetadataByPlan,
-                            )
+                            if (currentState.selectedPromptPresetKey == PROMPT_PRESET_READ_QWEN3) {
+                                CustomAppMainPathPrompting.renderRead(
+                                    model = selectedModel,
+                                    presetKey = currentState.selectedPromptPresetKey,
+                                    template = effectivePromptTemplate,
+                                    record = record,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                )
+                            } else {
+                                val rawRender =
+                                    CustomAppReadPromptRenderer.render(
+                                        template = promptTemplate,
+                                        record = record,
+                                        apiMetadataByPlan = apiMetadataByPlan,
+                                    )
+                                ModelAwarePromptRenderResult(
+                                    preview = rawRender.prompt,
+                                    executionPrompt = CustomAppInferencePrompt.Raw(rawRender.prompt),
+                                    missingPlans = rawRender.missingPlans,
+                                    parsedCandidateCount = rawRender.parsedCandidateCount,
+                                    renderedToolCount = rawRender.renderedToolCount,
+                                )
+                            }
                         _uiState.update {
                             it.copy(
-                                renderedReadPromptPreview = renderResult.prompt,
+                                renderedReadPromptPreview = renderResult.preview,
                                 readPromptPreviewError = null,
                                 renderedToolsMissingPlans = renderResult.missingPlans,
                                 renderedToolsCandidateCount = renderResult.parsedCandidateCount,
@@ -262,8 +286,25 @@ class CustomAppReadViewModel(
                             )
                         }
 
-                        resetBatchStateSuspend()
-                        val response = getRawResponseSuspend(renderResult.prompt)
+                        val rawResponse =
+                            when (val executionPrompt = renderResult.executionPrompt) {
+                                is CustomAppInferencePrompt.Raw -> {
+                                    resetBatchStateSuspend("")
+                                    getRawResponseSuspend(executionPrompt.prompt)
+                                }
+
+                                is CustomAppInferencePrompt.Structured -> {
+                                    resetBatchStateSuspend(executionPrompt.systemPrompt)
+                                    getResponseSuspend(executionPrompt.userContent)
+                                }
+                            }
+                        val response = rawResponse.copy(
+                            response =
+                                CustomAppMainPathPrompting.trimStopMarkers(
+                                    text = rawResponse.response,
+                                    model = selectedModel,
+                                ),
+                        )
                         val parseResult = runCatching { CustomAppReadJsonParser.parse(response.response) }
                         val currentUiState = _uiState.value
                         val evaluationSummary =
@@ -385,7 +426,7 @@ class CustomAppReadViewModel(
                                 sourceTsvRowCount = currentState.goldRecords.size,
                                 selectedRowCount = selectedRows.size,
                                 batchMode = currentState.selectedBatchRunMode,
-                                promptTemplate = promptTemplate,
+                                promptTemplate = effectivePromptTemplate,
                                 macroAccuracy = evaluationSummary.macroAccuracy,
                                 failedRows = persistedResults.count { it.status != "success" },
                                 runCreatedAt = runCreatedAt,
@@ -407,7 +448,7 @@ class CustomAppReadViewModel(
                         sourceTsvRowCount = currentState.goldRecords.size,
                         selectedRowCount = selectedRows.size,
                         batchMode = currentState.selectedBatchRunMode,
-                        promptTemplate = promptTemplate,
+                        promptTemplate = effectivePromptTemplate,
                         macroAccuracy = _uiState.value.macroAccuracy,
                         failedRows = persistedResults.count { it.status != "success" },
                         runCreatedAt = runCreatedAt,
@@ -592,6 +633,7 @@ class CustomAppReadViewModel(
                 sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_READ_QWEN3).let { storedKey ->
                     when (storedKey) {
                         PROMPT_PRESET_READ_QWEN3,
+                        PROMPT_PRESET_READ2_QWEN3,
                         -> storedKey
                         else -> PROMPT_PRESET_READ_QWEN3
                     }
@@ -601,11 +643,29 @@ class CustomAppReadViewModel(
             val previewResult =
                 runCatching {
                     goldRecords.firstOrNull()?.let {
-                        CustomAppReadPromptRenderer.render(
-                            template = systemPrompt,
-                            record = it,
-                            apiMetadataByPlan = apiMetadataByPlan,
-                        )
+                        if (selectedPromptPresetKey == PROMPT_PRESET_READ_QWEN3) {
+                            CustomAppMainPathPrompting.renderRead(
+                                model = selectedModel,
+                                presetKey = selectedPromptPresetKey,
+                                template = systemPrompt,
+                                record = it,
+                                apiMetadataByPlan = apiMetadataByPlan,
+                            )
+                        } else {
+                            val rawRender =
+                                CustomAppReadPromptRenderer.render(
+                                    template = systemPrompt,
+                                    record = it,
+                                    apiMetadataByPlan = apiMetadataByPlan,
+                                )
+                            ModelAwarePromptRenderResult(
+                                preview = rawRender.prompt,
+                                executionPrompt = CustomAppInferencePrompt.Raw(rawRender.prompt),
+                                missingPlans = rawRender.missingPlans,
+                                parsedCandidateCount = rawRender.parsedCandidateCount,
+                                renderedToolCount = rawRender.renderedToolCount,
+                            )
+                        }
                     }
                 }
 
@@ -618,7 +678,7 @@ class CustomAppReadViewModel(
                         goldTsvName = goldTsvName,
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
                         selectedBatchRunMode = sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1),
-                        renderedReadPromptPreview = previewResult.getOrNull()?.prompt,
+                        renderedReadPromptPreview = previewResult.getOrNull()?.preview,
                         readPromptPreviewError = previewResult.exceptionOrNull()?.message,
                         renderedToolsMissingPlans = previewResult.getOrNull()?.missingPlans ?: emptyList(),
                         renderedToolsCandidateCount = previewResult.getOrNull()?.parsedCandidateCount ?: 0,
@@ -707,9 +767,31 @@ class CustomAppReadViewModel(
             )
         }
 
-    private suspend fun resetBatchStateSuspend() =
+    private suspend fun getResponseSuspend(query: String): SmolLMManager.SmolLMResponse =
+        suspendCancellableCoroutine { continuation ->
+            smolLMManager.getResponse(
+                query = query,
+                responseTransform = { it.trim() },
+                onPartialResponseGenerated = { partial ->
+                    _uiState.update { state -> state.copy(partialResponse = partial) }
+                },
+                onSuccess = { response ->
+                    if (continuation.isActive) continuation.resume(response)
+                },
+                onCancelled = {
+                    if (continuation.isActive) {
+                        continuation.resumeWithException(IllegalStateException("READ batch run cancelled."))
+                    }
+                },
+                onError = { error ->
+                    if (continuation.isActive) continuation.resumeWithException(error)
+                },
+            )
+        }
+
+    private suspend fun resetBatchStateSuspend(systemPrompt: String) =
         withContext(Dispatchers.Default) {
-            smolLMManager.resetLoadedState("")
+            smolLMManager.resetLoadedState(systemPrompt)
         }
 
     private suspend fun flushBatchExport(

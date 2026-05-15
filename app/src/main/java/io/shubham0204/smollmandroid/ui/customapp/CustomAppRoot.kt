@@ -75,7 +75,9 @@ fun CustomAppRoot() {
                 viewModel = viewModel,
                 onContinue = { testType ->
                     when (testType) {
-                        TEST_TYPE_READ -> navController.navigate(CustomAppRoutes.ReadEvaluate)
+                        TEST_TYPE_READ,
+                        TEST_TYPE_READ_2,
+                        -> navController.navigate(CustomAppRoutes.ReadEvaluate)
                         else -> navController.navigate(CustomAppRoutes.ChatEvaluate)
                     }
                 }
@@ -159,7 +161,7 @@ private fun SetupPlaceholderScreen(
                 }
             }
 
-            SectionCard(title = "Qwen Prompt") {
+            SectionCard(title = "Prompt And Parameters") {
                 Text(
                     text = "Test type",
                     style = MaterialTheme.typography.labelLarge,
@@ -169,20 +171,56 @@ private fun SetupPlaceholderScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    testTypeOptions.forEach { option ->
-                        PromptPresetButton(
-                            label = option.label,
-                            selected = uiState.selectedTestType == option.key,
-                            onClick = { viewModel.selectTestType(option.key) },
-                            modifier = Modifier.weight(1f),
-                        )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        testTypeOptions.chunked(2).forEach { rowOptions ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                rowOptions.forEach { option ->
+                                    PromptPresetButton(
+                                        label = option.label,
+                                        selected = uiState.selectedTestType == option.key,
+                                        onClick = { viewModel.selectTestType(option.key) },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 Text(
                     text =
                         when (uiState.selectedTestType) {
-                            TEST_TYPE_READ -> "READ uses the READ-Qwen prompt."
-                            else -> "Baseline uses the Baseline-Qwen prompt."
+                            TEST_TYPE_READ ->
+                                if (
+                                    CustomAppMainPathPrompting.shouldUseStructuredReadPrompt(
+                                        uiState.selectedModel,
+                                        PROMPT_PRESET_READ_QWEN3,
+                                    )
+                                ) {
+                                    "READ uses the GLM model-matched one-shot prompt."
+                                } else {
+                                    "READ uses the Qwen tool-aware one-shot prompt."
+                                }
+
+                            TEST_TYPE_READ_2 -> "READ2 uses the tool-free READ2-Qwen prompt."
+                            TEST_TYPE_TOOLCALLING_2 ->
+                                "Baseline2 uses the tool-free Baseline2-Qwen prompt."
+                            else ->
+                                if (
+                                    CustomAppMainPathPrompting.shouldUseStructuredBaselinePrompt(
+                                        uiState.selectedModel,
+                                        PROMPT_PRESET_BASE_QWEN3,
+                                    )
+                                ) {
+                                    "Baseline uses the GLM model-matched history prompt."
+                                } else {
+                                    "Baseline uses the Qwen tool-aware history prompt."
+                                }
                         },
                     style = MaterialTheme.typography.bodyMedium,
                 )
@@ -270,7 +308,9 @@ private fun SetupPlaceholderScreen(
             ) {
                 Text(
                     when (uiState.selectedTestType) {
-                        TEST_TYPE_READ -> "Open READ Flow"
+                        TEST_TYPE_READ,
+                        TEST_TYPE_READ_2,
+                        -> "Open READ Flow"
                         else -> "Open Baseline Flow"
                     },
                 )
@@ -316,7 +356,19 @@ private fun ReadEvaluateScreen(
                 Text(
                     text =
                         when (uiState.selectedPromptPresetKey) {
-                            PROMPT_PRESET_READ_QWEN3 -> "Preset: READ-Qwen"
+                            PROMPT_PRESET_READ_QWEN3 ->
+                                if (
+                                    CustomAppMainPathPrompting.shouldUseStructuredReadPrompt(
+                                        uiState.selectedModel,
+                                        uiState.selectedPromptPresetKey,
+                                    )
+                                ) {
+                                    "Preset: READ (GLM)"
+                                } else {
+                                    "Preset: READ (Qwen)"
+                                }
+
+                            PROMPT_PRESET_READ2_QWEN3 -> "Preset: READ2"
                             else -> "Preset: ${uiState.selectedPromptPresetKey}"
                         },
                     style = MaterialTheme.typography.bodyMedium,
@@ -359,7 +411,22 @@ private fun ReadEvaluateScreen(
 
             SectionCard(title = "READ Prompt Preview") {
                 Text(
-                    text = "Prompt rendering follows the READ one-shot input shape.",
+                    text =
+                        when (uiState.selectedPromptPresetKey) {
+                            PROMPT_PRESET_READ2_QWEN3 ->
+                                "Prompt rendering follows the tool-free READ one-shot input shape."
+                            else ->
+                                if (
+                                    CustomAppMainPathPrompting.shouldUseStructuredReadPrompt(
+                                        uiState.selectedModel,
+                                        uiState.selectedPromptPresetKey,
+                                    )
+                                ) {
+                                    "Prompt rendering follows the model-matched READ system/user message shape."
+                                } else {
+                                    "Prompt rendering follows the READ one-shot input shape."
+                                }
+                        },
                     style = MaterialTheme.typography.bodySmall,
                 )
                 uiState.renderedReadPromptPreview?.let { preview ->
@@ -724,7 +791,21 @@ private fun ChatEvaluatePlaceholderScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = "Prompt: Baseline-Qwen",
+                    text =
+                        when (uiState.selectedPromptPresetKey) {
+                            PROMPT_PRESET_BASE2_QWEN3 -> "Prompt: Baseline2"
+                            else ->
+                                if (
+                                    CustomAppMainPathPrompting.shouldUseStructuredBaselinePrompt(
+                                        uiState.selectedModel,
+                                        uiState.selectedPromptPresetKey,
+                                    )
+                                ) {
+                                    "Prompt: Baseline (GLM)"
+                                } else {
+                                    "Prompt: Baseline (Qwen)"
+                                }
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(

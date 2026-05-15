@@ -36,6 +36,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 private const val PREF_SETUP_MODEL_ID = "custom_app.setup.model_id"
+private const val PREF_SETUP_PROMPT_PRESET_KEY = "custom_app.setup.prompt_preset_key"
 private const val PREF_SETUP_SYSTEM_PROMPT = "custom_app.setup.system_prompt"
 private const val PREF_SETUP_TEMPERATURE = "custom_app.setup.temperature"
 private const val PREF_SETUP_MIN_P = "custom_app.setup.min_p"
@@ -79,6 +80,7 @@ val batchRunModeOptions =
 data class CustomAppChatUiState(
     val chat: Chat? = null,
     val selectedModel: LLMModel? = null,
+    val selectedPromptPresetKey: String = PROMPT_PRESET_BASE_QWEN3,
     val messages: List<ChatMessage> = emptyList(),
     val batchConversationMessages: List<ChatMessage> = emptyList(),
     val inputText: String = "",
@@ -497,6 +499,12 @@ class CustomAppChatViewModel(
                 var tempChat: Chat? = null
                 try {
                     val apiMetadataByPlan = apiMetadataAssetStore.getAllSimple()
+                    val effectivePromptTemplate =
+                        CustomAppMainPathPrompting.normalizeTemplateForMainPath(
+                            template = promptTemplate,
+                            presetKey = currentState.selectedPromptPresetKey,
+                            model = selectedModel,
+                        )
                     exportSession =
                         resumeCandidate?.session
                             ?: batchResultExportStore.createSession(
@@ -519,8 +527,10 @@ class CustomAppChatViewModel(
 
                     rowsToRun.forEachIndexed { _, record ->
                         val renderResult =
-                            CustomAppPromptTemplateRenderer.render(
-                                template = promptTemplate,
+                            CustomAppMainPathPrompting.renderBaseline(
+                                model = selectedModel,
+                                presetKey = currentState.selectedPromptPresetKey,
+                                template = effectivePromptTemplate,
                                 record = record,
                                 apiMetadataByPlan = apiMetadataByPlan,
                             )
@@ -529,7 +539,7 @@ class CustomAppChatViewModel(
                                 batchLatestUniqueIdx = record.uniqueIdx,
                                 batchStatusMessage =
                                     "Running ${persistedResults.size + 1}/${selectedRows.size}: ${record.uniqueIdx}",
-                                renderedPromptPreview = renderResult.prompt,
+                                renderedPromptPreview = renderResult.preview,
                                 renderedToolsMissingPlans = renderResult.missingPlans,
                                 renderedToolsCandidateCount = renderResult.parsedCandidateCount,
                                 renderedToolsCount = renderResult.renderedToolCount,
@@ -537,8 +547,25 @@ class CustomAppChatViewModel(
                         }
 
                         appDB.deleteMessages(tempChat.id)
-                        resetBatchStateSuspend(tempChat.systemPrompt)
-                        val response = getRawResponseSuspend(renderResult.prompt)
+                        val rawResponse =
+                            when (val executionPrompt = renderResult.executionPrompt) {
+                                is CustomAppInferencePrompt.Raw -> {
+                                    resetBatchStateSuspend(tempChat.systemPrompt)
+                                    getRawResponseSuspend(executionPrompt.prompt)
+                                }
+
+                                is CustomAppInferencePrompt.Structured -> {
+                                    resetBatchStateSuspend(executionPrompt.systemPrompt)
+                                    getResponseSuspend(executionPrompt.userContent)
+                                }
+                            }
+                        val response = rawResponse.copy(
+                            response =
+                                CustomAppMainPathPrompting.trimStopMarkers(
+                                    text = rawResponse.response,
+                                    model = selectedModel,
+                                ),
+                        )
                         val batchOutputMessage =
                             ChatMessage(
                                 id = -((persistedResults.size + 1).toLong()),
@@ -661,7 +688,7 @@ class CustomAppChatViewModel(
                                 sourceTsvRowCount = currentState.goldRecords.size,
                                 selectedRowCount = selectedRows.size,
                                 batchMode = currentState.selectedBatchRunMode,
-                                promptTemplate = promptTemplate,
+                                promptTemplate = effectivePromptTemplate,
                                 macroAccuracy = evaluationSummary.macroAccuracy,
                                 failedRows = persistedResults.count { it.status != "success" },
                                 runCreatedAt = runCreatedAt,
@@ -685,7 +712,7 @@ class CustomAppChatViewModel(
                         sourceTsvRowCount = currentState.goldRecords.size,
                         selectedRowCount = selectedRows.size,
                         batchMode = currentState.selectedBatchRunMode,
-                        promptTemplate = promptTemplate,
+                        promptTemplate = effectivePromptTemplate,
                         macroAccuracy = _uiState.value.macroAccuracy,
                         failedRows = persistedResults.count { it.status != "success" },
                         runCreatedAt = runCreatedAt,
@@ -879,6 +906,15 @@ class CustomAppChatViewModel(
                 } else {
                     runCatching { CustomAppTsvLoader.load(goldTsvPath) }
                 }
+            val selectedPromptPresetKey =
+                sharedPrefStore.get(PREF_SETUP_PROMPT_PRESET_KEY, PROMPT_PRESET_BASE_QWEN3).let { storedKey ->
+                    when (storedKey) {
+                        PROMPT_PRESET_BASE_QWEN3,
+                        PROMPT_PRESET_BASE2_QWEN3,
+                        -> storedKey
+                        else -> PROMPT_PRESET_BASE_QWEN3
+                    }
+                }
             val existingChat = appDB.getRecentlyUsedChat()
             val chat =
                 if (
@@ -945,7 +981,9 @@ class CustomAppChatViewModel(
                     runCatching { apiMetadataAssetStore.getAllSimple() }.getOrDefault(emptyMap())
                 val previewResult =
                     goldRecords.firstOrNull()?.let { record ->
-                        CustomAppPromptTemplateRenderer.render(
+                        CustomAppMainPathPrompting.renderBaseline(
+                            model = selectedModel,
+                            presetKey = selectedPromptPresetKey,
                             template = systemPrompt,
                             record = record,
                             apiMetadataByPlan = apiMetadataByPlan,
@@ -955,6 +993,7 @@ class CustomAppChatViewModel(
                     it.copy(
                         chat = chat,
                         selectedModel = selectedModel,
+                        selectedPromptPresetKey = selectedPromptPresetKey,
                         goldRecords = goldRecords,
                         goldTsvName = goldTsvName,
                         goldTsvLoadError = goldTsvLoadResult.exceptionOrNull()?.message,
@@ -962,7 +1001,7 @@ class CustomAppChatViewModel(
                             sharedPrefStore.get(PREF_BATCH_RUN_MODE, BATCH_RUN_MODE_FIRST_1)
                                 .takeIf { mode -> batchRunModeOptions.any { it.key == mode } }
                                 ?: BATCH_RUN_MODE_FIRST_1,
-                        renderedPromptPreview = previewResult?.prompt,
+                        renderedPromptPreview = previewResult?.preview,
                         renderedToolsMissingPlans = previewResult?.missingPlans ?: emptyList(),
                         renderedToolsCandidateCount = previewResult?.parsedCandidateCount ?: 0,
                         renderedToolsCount = previewResult?.renderedToolCount ?: 0,

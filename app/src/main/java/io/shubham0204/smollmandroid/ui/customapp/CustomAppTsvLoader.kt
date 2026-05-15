@@ -13,6 +13,9 @@ data class GoldTsvRecord(
 )
 
 object CustomAppTsvLoader {
+    private val referenceTurnColumnAliases =
+        listOf("reference_turn", "refered_turn", "referred_turn", "referered_turn")
+
     private val requiredColumns =
         listOf(
             "conversation_history",
@@ -55,6 +58,13 @@ object CustomAppTsvLoader {
                         cells.getOrNull(index)?.trim().orEmpty()
                     }.orEmpty()
 
+                fun optionalValue(names: List<String>): String =
+                    names.firstNotNullOfOrNull { name ->
+                        columnIndex[name]?.let { index ->
+                            cells.getOrNull(index)?.trim()?.takeIf { it.isNotEmpty() }
+                        }
+                    }.orEmpty()
+
                 val uniqueIdx = value("unique_idx")
                 val answer = value("answer")
 
@@ -67,7 +77,8 @@ object CustomAppTsvLoader {
                 records +=
                     GoldTsvRecord(
                         conversationHistory = value("conversation_history"),
-                        referenceTurn = optionalValue("reference_turn"),
+                        referenceTurn =
+                            normalizeReferenceTurn(optionalValue(referenceTurnColumnAliases)),
                         query = value("query"),
                         rewritedQuery = value("rewrited_query"),
                         answer = answer,
@@ -77,5 +88,17 @@ object CustomAppTsvLoader {
             }
 
         return records
+    }
+
+    private fun normalizeReferenceTurn(rawValue: String): String {
+        if (rawValue.isBlank()) return "1"
+        val numeric = rawValue.toDoubleOrNull()
+        if (numeric != null) {
+            val whole = numeric.toLong()
+            if (numeric == whole.toDouble()) {
+                return whole.toString()
+            }
+        }
+        return rawValue
     }
 }
