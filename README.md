@@ -111,13 +111,5 @@ Install to a connected Android device:
 - On-device inference engine: [smollm](smollm)
 - Batch result export logic: [BatchResultExportStore.kt](app/src/main/java/io/shubham0204/smollmandroid/data/BatchResultExportStore.kt)
 
-## Docs
-
-- [Custom App Docs Map](docs/custom-app/README.md)
-- [Architecture](docs/custom-app/architecture.md)
-- [Roadmap](docs/custom-app/roadmap.md)
-- [Batch Result Export Spec](docs/custom-app/specs/batch-result-export-spec.md)
-- [Runtime Metrics Spec](docs/custom-app/specs/runtime-metrics-spec.md)
-
 ## Upstream Base
 This project began as a fork of `SmolChat-Android` and now focuses on `READEvaluator`, an Android app for on-device READ/Baseline evaluation.
